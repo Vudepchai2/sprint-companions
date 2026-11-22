@@ -12,9 +12,14 @@ _PATTERNS = [
     re.compile(r"xox[abprs]-[A-Za-z0-9-]{10,}"),
     re.compile(r"eyJ[\w-]{5,}\.[\w-]{5,}\.[\w-]{5,}"),
 ]
-# Same match as (?i)\b(password|...|api[_-]?key)\b\s*[:=]\s*\S+, with the separator grouped
-# so the key name and separator stay and only the value goes.
-_KEY_VALUE = re.compile(r"(?i)\b(password|passwd|pwd|secret|token|api[_-]?key)\b(\s*[:=]\s*)\S+")
+# key = value, keeping the key name and separator and replacing only the value. The key may sit
+# inside a larger identifier (DB_PASSWORD, dbPassword, STRIPE_SECRET_KEY) and be quoted, as in JSON.
+# A suffix must start with _ or -, so plain words like "tokens:" or "secretary:" are left alone.
+# A quoted value goes whole, spaces and closing quote included.
+_KEY_VALUE = re.compile(
+    r"(?i)\b([\w-]*(?:password|passwd|pwd|secret|token|api[_-]?key)(?:[_-][\w-]*)?)"
+    r"([\"']?\s*[:=]\s*)"
+    r"(\"[^\"\n]*\"?|'[^'\n]*'?|\S+)")
 _LONG_OPAQUE = re.compile(r"\b[A-Za-z0-9+/_-]{40,}\b")
 
 
