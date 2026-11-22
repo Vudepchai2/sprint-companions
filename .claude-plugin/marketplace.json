@@ -1,0 +1,11 @@
+{
+  "name": "sprint-companions",
+  "owner": {"name": "Vudepchai2"},
+  "plugins": [
+    {
+      "name": "sprint-companions",
+      "source": "./plugin",
+      "description": "Sprint companions for demo-day storytelling."
+    }
+  ]
+}

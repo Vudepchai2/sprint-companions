@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# companions: runs the sprint-companions engine at the version this plugin pins.
+#
+# On first use (or when the installed engine is a different version) it installs the pinned
+# engine with uv, then runs it with the same arguments. Works in Git Bash on Windows and in
+# bash on macOS and Linux. It never calls `companions` by name: this file is on PATH under
+# that name, so a bare call would run itself.
+#
+# The engine goes into a private folder that is never on PATH (UV_TOOL_BIN_DIR), not uv's default
+# ~/.local/bin. Claude Code puts plugin bin/ folders after the user's PATH, so an engine in
+# ~/.local/bin would shadow this launcher and the pin would never be checked again.
+#
+# Hooks:
+#   `hook prompt` (UserPromptSubmit) is a fast path. It never installs anything, prints nothing
+#   (a prompt hook's stdout becomes context) and always exits 0 (exit 2 would block the user's
+#   prompt), whatever goes wrong. If the engine isn't installed at the pin, it does nothing.
+#   `hook session-start` takes the normal install path, but every failure exits 0 and every
+#   launcher message goes to stderr; only the engine's own stdout is the hook output.
+#
+# Exit codes (other commands): 3 uv missing, 4 engine install failed, 5 launcher re-entered,
+# 6 `uv tool dir` failed, 7 the engine folder holds this launcher.
+#
+# COMPANIONS_ENGINE_URL overrides where the engine comes from (for tests and local dry runs),
+# for example file:///path/to/engine. The pin is appended as @v<pin>.
+# COMPANIONS_ENGINE_BIN overrides the private engine folder (default ~/.sprint-companions/engine-bin).
+set -euo pipefail
+
+MODE=""
+if [ "${1:-}" = "hook" ]; then
+  case "${2:-}" in
+    prompt) MODE="prompt" ;;
+    session-start) MODE="session-start" ;;
+  esac
+fi
+# Hooks never fail the host: a prompt hook is silent and exits 0 on any path, a session-start hook
+# exits 0 too (its messages go to stderr).
+if [ -n "$MODE" ]; then
+  trap 'exit 0' EXIT
+fi
+
+say() { # a launcher message: stderr only, and nothing at all on the prompt path
+  [ "$MODE" = "prompt" ] || echo "$@" >&2
+  return 0
+}
+
+die() { # die CODE: hooks exit 0, everything else exits with CODE
+  if [ -n "$MODE" ]; then exit 0; fi
+  exit "$1"
+}
+
+# A launcher that somehow reached itself again stops at once instead of forking forever.
+if [ -n "${COMPANIONS_SHIM_ACTIVE:-}" ]; then
+  say "companions: the launcher was started from inside itself; stopping. Please report this."
+  die 5
+fi
+export COMPANIONS_SHIM_ACTIVE=1
+
+case "$0" in
+  */* | *\\*) HERE="${0%[/\\]*}" ;; # a Windows caller may pass C:\...\bin\companions
+  *) HERE="." ;;
+esac
+PIN="$(<"$HERE/../engine-version.txt")"
+PIN="${PIN//[[:space:]]/}"
+
+is_windows() {
+  case "${OSTYPE:-}" in
+    msys* | cygwin* | win32*) return 0 ;;
+  esac
+  [ -n "${WINDIR:-}" ]
+}
+
+find_uv() {
+  local c
+  if c="$(command -v uv 2>/dev/null)" && [ -n "$c" ]; then
+    printf '%s' "$c"
+    return 0
+  fi
+  local profile=""
+  # On Windows, uv's installer writes under the user profile even when HOME points elsewhere.
+  if [ -n "${USERPROFILE:-}" ] && command -v cygpath >/dev/null 2>&1; then
+    profile="$(cygpath -u "$USERPROFILE" 2>/dev/null || true)"
+  fi
+  for c in "${XDG_BIN_HOME:-/nonexistent}/uv" "${UV_INSTALL_DIR:-/nonexistent}/uv" \
+    "$HOME/.local/bin/uv" "$HOME/.local/bin/uv.exe" "$HOME/.cargo/bin/uv" "$HOME/.cargo/bin/uv.exe" \
+    "${profile:-/nonexistent}/.local/bin/uv.exe"; do
+    if [ -x "$c" ] && [ ! -d "$c" ]; then
+      printf '%s' "$c"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if ! UV="$(find_uv)"; then
+  say "companions needs uv, a small installer for Python tools. It isn't installed yet."
+  say "Install it with this one command (no admin rights needed), then try again:"
+  if is_windows; then
+    say '  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"'
+  else
+    say '  curl -LsSf https://astral.sh/uv/install.sh | sh'
+  fi
+  die 3
+fi
+
+PRIVATE_BIN="${COMPANIONS_ENGINE_BIN:-$HOME/.sprint-companions/engine-bin}"
+if [ "$MODE" != "prompt" ]; then # the prompt path creates nothing
+  [ -d "$PRIVATE_BIN" ] || mkdir -p "$PRIVATE_BIN"
+fi
+if command -v cygpath >/dev/null 2>&1; then
+  UV_TOOL_BIN_DIR="$(cygpath -w "$PRIVATE_BIN")" # uv on Windows wants a Windows path
+else
+  UV_TOOL_BIN_DIR="$PRIVATE_BIN"
+fi
+export UV_TOOL_BIN_DIR
+
+if [ "$MODE" = "prompt" ]; then
+  # UV_TOOL_BIN_DIR is the folder uv installs into, so the engine is there: no uv call needed.
+  BIN="$PRIVATE_BIN"
+else
+  if ! BIN="$("$UV" tool dir --bin)"; then
+    say "companions: couldn't find uv's tool folder (\"uv tool dir --bin\" failed). Try updating uv with: uv self update"
+    die 6
+  fi
+  BIN="${BIN%$'\r'}"
+  if command -v cygpath >/dev/null 2>&1; then
+    BIN="$(cygpath -u "$BIN")"
+  fi
+fi
+
+engine_path() {
+  if [ -e "$BIN/companions.exe" ]; then
+    printf '%s' "$BIN/companions.exe"
+  else
+    printf '%s' "$BIN/companions"
+  fi
+}
+
+ENGINE="$(engine_path)"
+if [ -e "$ENGINE" ] && [ "$ENGINE" -ef "$0" ]; then
+  say "companions: the engine folder ($BIN) holds this plugin's own launcher, not the engine."
+  die 7
+fi
+
+installed=""
+if [ -x "$ENGINE" ]; then
+  installed="$("$ENGINE" version 2>/dev/null || true)"
+  installed="${installed%$'\r'}"
+fi
+
+if [ "$installed" != "companions $PIN" ]; then
+  if [ "$MODE" = "prompt" ]; then
+    exit 0 # never install on the prompt path
+  fi
+  if [ -n "${COMPANIONS_ENGINE_URL:-}" ]; then
+    SPEC="git+${COMPANIONS_ENGINE_URL}@v${PIN}"
+  else
+    SPEC="git+https://github.com/Vudepchai2/sprint-companions@v${PIN}#subdirectory=engine"
+  fi
+  say "companions: installing the companions engine ${PIN} (once; this can take a few minutes)..."
+  if ! "$UV" tool install --force --python 3.12 "$SPEC" >&2; then
+    say "companions: couldn't install the companions engine. Check the internet connection and try again."
+    die 4
+  fi
+  ENGINE="$(engine_path)"
+  if [ ! -x "$ENGINE" ]; then
+    say "companions: the engine was installed but $ENGINE wasn't found."
+    die 4
+  fi
+fi
+
+unset COMPANIONS_SHIM_ACTIVE
+if [ "$MODE" = "prompt" ]; then
+  # The outer guard: stdout becomes prompt context and exit 2 blocks the prompt, so the engine's
+  # output and exit code are both thrown away.
+  "$ENGINE" "$@" >/dev/null 2>&1 || true
+  exit 0
+fi
+if [ -n "$MODE" ]; then
+  trap - EXIT
+  # session-start: keep the engine's stdout; its failure must not fail the host.
+  "$ENGINE" "$@" || true
+  exit 0
+fi
+exec "$ENGINE" "$@"

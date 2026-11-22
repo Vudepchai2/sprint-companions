@@ -1,0 +1,7 @@
+{
+  "name": "sprint-companions",
+  "version": "0.1.0",
+  "description": "Sprint companions: four founder-inspired AI companions that spar with you on your demo-day story and keep quiet notes.",
+  "author": {"name": "Vudepchai2"},
+  "license": "Apache-2.0"
+}
