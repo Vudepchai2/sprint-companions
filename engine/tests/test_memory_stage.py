@@ -179,3 +179,40 @@ def test_cli_writes_page_or_fails_clean(env, tmp_path):
     r = subprocess.run([sys.executable, "-m", "companions", "memory", "demo-brief", str(directory), str(pf)],
                        capture_output=True, text=True, encoding="utf-8")
     assert r.returncode == 1 and "c99" in r.stderr and not page.exists()
+
+
+def _with_quote(env, statement, quote, line):
+    store, _ = env
+    _add(store, [{"type": "claim", "about": "m1", "key": "x" + str(abs(hash(quote)) % 999),
+                  "statement": statement, "quote": quote}])
+    b = bank_of(env)
+    cid = max((i for i in b.records if b.records[i]["type"] == "claim"), key=lambda i: int(i[1:]))
+    return b, plan(script=[{"line": line, "cites": [cid]}])
+
+
+def test_spelled_out_number_not_in_cited_records_is_rejected(env):
+    b, p = _with_quote(env, "Customers", "some customers", "three hundred customers")
+    errs = errors(b, p)
+    assert len(errs) == 1 and "beat 1" in errs[0] and "three hundred" in errs[0]
+    b, p = _with_quote(env, "Customers", "some customers", "a hundred percent")
+    assert "a hundred" in errors(b, p)[0]
+
+
+def test_spelled_out_number_matches_digits_in_record(env):
+    b, p = _with_quote(env, "Customers", "300 customers", "three hundred customers")
+    assert "three hundred customers" in render_brief(b, p)
+    b, p = _with_quote(env, "Clinics", "12 clinics", "a dozen clinics")
+    assert "a dozen clinics" in render_brief(b, p)
+    b, p = _with_quote(env, "Team", "25 people", "twenty-five people")
+    assert "twenty-five people" in render_brief(b, p)
+
+
+def test_spelled_out_number_matches_words_in_record(env):
+    b, p = _with_quote(env, "Tenure", "for six years", "for six years")
+    assert "for six years" in render_brief(b, p)
+
+
+def test_comma_only_joins_thousands_groups(env):
+    b, p = _with_quote(env, "Count", "it was 23 times", "2,3 times")
+    errs = errors(b, p)
+    assert len(errs) == 2 and "number 2 " in errs[0] and "number 3 " in errs[1]

@@ -10,7 +10,6 @@ from .schema import BY
 DRAFT_LINE = "Draft: in your words, from your memory. Change anything that doesn't sound like you."
 WORDS_PER_MINUTE = 150
 PROOF_ORDER = ("confirmed", "corroborated", "said", "documented")
-_NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
 _TEXT_FIELDS = ("title", "what_happened", "statement", "quote")
 
 
@@ -31,14 +30,81 @@ def source_label(source: dict) -> str:
     return f"{kind}, {at}" if at else str(kind)
 
 
+_UNITS = {w: i for i, w in enumerate(
+    "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen "
+    "fifteen sixteen seventeen eighteen nineteen".split())}
+_TENS = {w: 10 * i for i, w in enumerate(
+    "_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()) if w != "_"}
+_SCALES = {"hundred": 100, "thousand": 1000, "million": 1_000_000}
+_TOKEN = re.compile(r"\d{1,3}(?:,\d{3})+(?!\d)(?:\.\d+)?|\d+(?:\.\d+)?|[a-z]+")
+
+
+def _find_numbers(text: str) -> list[tuple[str, float]]:
+    """Every number in the text, as (the words as written, its value): digits and number words."""
+    toks = _TOKEN.findall(text.lower())
+    found: list[tuple[str, float]] = []
+    total = cur = 0.0
+    run: list[str] = []
+    last = ""  # kind of the last token in the run: digit, unit, tens, scale
+
+    def flush():
+        nonlocal total, cur, run, last
+        if run:
+            found.append((" ".join(run), total + cur))
+        total = cur = 0.0
+        run, last = [], ""
+
+    for i, t in enumerate(toks):
+        nxt = toks[i + 1] if i + 1 < len(toks) else ""
+        if t[0].isdigit():
+            flush()
+            cur, run, last = float(t.replace(",", "")), [t], "digit"
+        elif t in _UNITS:
+            if last == "tens" and _UNITS[t] < 10 and _UNITS[t] > 0 or last in ("scale", "and"):
+                cur += _UNITS[t]
+                run.append(t)
+                last = "unit"
+            else:
+                flush()
+                cur, run, last = float(_UNITS[t]), [t], "unit"
+        elif t in _TENS:
+            if last not in ("scale", "and"):
+                flush()
+            cur += _TENS[t]
+            run.append(t)
+            last = "tens"
+        elif t in _SCALES or t == "dozen":
+            mult = 12 if t == "dozen" else _SCALES[t]
+            if not run and last != "pending":
+                flush()
+                cur, run = 1.0, [t]
+            elif run and run[-1] in ("a", "an"):
+                cur = 1.0
+                run.append(t)
+            else:
+                run.append(t)
+            if t == "dozen":
+                cur *= 12
+            elif mult == 100:
+                cur *= 100
+            else:
+                total += cur * mult
+                cur = 0.0
+            last = "scale"
+        elif t in ("a", "an") and nxt in (*_SCALES, "dozen"):
+            flush()
+            run, last = [t], "pending"
+        elif t == "and" and last == "scale" and nxt in (*_UNITS, *_TENS):
+            run.append(t)
+            last = "and"
+        else:
+            flush()
+    flush()
+    return found
+
+
 def _numbers(text: str) -> set[float]:
-    out = set()
-    for m in _NUMBER.findall(text):
-        try:
-            out.add(float(m.replace(",", "")))
-        except ValueError:
-            pass
-    return out
+    return {v for _, v in _find_numbers(text)}
 
 
 def _record_numbers(rec: dict) -> set[float]:
@@ -113,8 +179,8 @@ def render_brief(bank: Bank, plan: dict) -> str:
         recs = [r for c in cites if (r := _check_id(bank, c, ("moment", "claim"), f"{where} cites", errors))]
         if line and len(recs) == len(cites) and cites:
             known = set().union(*(_record_numbers(r) for r in recs))
-            for raw in dict.fromkeys(_NUMBER.findall(line)):
-                if _numbers(raw) - known:
+            for raw, value in dict.fromkeys(_find_numbers(line)):
+                if value not in known:
                     errors.append(f"{where}: the number {raw} is not in any record it cites")
             beats.append((n, line, recs))
 
