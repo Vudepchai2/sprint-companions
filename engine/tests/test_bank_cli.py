@@ -15,3 +15,20 @@ def test_bank_ensure_creates_once_and_reuses(tmp_path, monkeypatch):
     second = run_cli("bank", "--ensure", "--name", "Other").stdout.strip()
     assert first == second == str(tmp_path / "people" / "ana")
     assert (Path(first) / "person.json").exists()
+
+
+def test_bank_ensure_saves_slug_in_settings(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setenv("COMPANIONS_HOME", str(tmp_path))
+    run_cli("bank", "--ensure", "--name", "Ana")
+    assert json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))["bank"] == "ana"
+
+
+def test_bank_ensure_adopts_existing_folder_without_setting(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setenv("COMPANIONS_HOME", str(tmp_path))
+    first = run_cli("bank", "--ensure", "--name", "Ana").stdout.strip()
+    (tmp_path / "settings.json").unlink()
+    r = run_cli("bank", "--ensure", "--name", "Ana")
+    assert r.returncode == 0 and r.stdout.strip() == first
+    assert json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))["bank"] == "ana"

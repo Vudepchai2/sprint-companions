@@ -77,9 +77,9 @@ def test_bad_batch_writes_nothing_and_lists_all_errors(bank):
         {"type": "observation", "about": "person", "statement": "s"},
         {"type": "claim", "about": "e1", "key": "k", "statement": "s", "quote": "q"},
         {"type": "moment", "title": "T", "what_happened": "W"},
-    ], {"kind": "coach", "ref": "reflect"})
-    assert errs == ["item 1: a coach source can only add observations",
-                    "item 2: a coach source can only add observations"]
+    ], {"kind": "companion", "ref": "reflect"})
+    assert errs == ["item 1: a companion source can only add observations",
+                    "item 2: a companion source can only add observations"]
     assert store.events() == before
 
 
@@ -91,20 +91,20 @@ def test_claim_needs_quote(bank):
     assert errors_of(store, [{**claim, "quote": "  "}]) == ["item 0: claim needs a quote"]
 
 
-def test_coach_source_only_adds_observations(bank):
+def test_companion_source_only_adds_observations(bank):
     store, _ = bank
     run(store, [{"type": "entity", "name": "A", "kind": "person"}])
-    coach = {"kind": "coach", "ref": "reflect"}
+    coach = {"kind": "companion", "ref": "reflect"}
     run(store, [{"type": "observation", "about": "person", "statement": "s"}], coach)
     assert errors_of(store, [{"type": "moment", "title": "T", "what_happened": "W"}], coach) == [
-        "item 0: a coach source can only add observations"]
+        "item 0: a companion source can only add observations"]
 
 
 def test_confirm_needs_said_source(bank):
     store, _ = bank
     run(store, [{"type": "entity", "name": "A", "kind": "person"}])
     assert errors_of(store, [{"op": "confirm", "id": "e1", "quote": "q"}],
-                     {"kind": "transcript", "ref": "takes/1"}) == [
+                     {"kind": "build", "ref": "takes/1"}) == [
         "item 0: confirm needs a 'said' source"]
     run(store, [{"op": "confirm", "id": "e1", "quote": "q"}])
 
@@ -157,7 +157,7 @@ def test_bad_date_rejected(bank):
 def test_bad_source_kind(bank):
     store, _ = bank
     assert errors_of(store, [], {"kind": "guess", "ref": "x"}) == [
-        "source.kind must be one of coach, document, said, transcript"]
+        "source.kind must be one of build, companion, document, said"]
 
 
 def test_document_source_must_be_registered(bank):
@@ -294,8 +294,8 @@ def test_source_ref_required_for_every_kind(bank):
     store, _ = bank
     moment = {"type": "moment", "title": "T", "what_happened": "W"}
     obs = {"type": "observation", "about": "person", "statement": "s"}
-    for source, item in [({"kind": "said"}, moment), ({"kind": "transcript", "ref": " "}, moment),
-                         ({"kind": "coach"}, obs), ({"kind": "said", "ref": 3}, moment)]:
+    for source, item in [({"kind": "said"}, moment), ({"kind": "build", "ref": " "}, moment),
+                         ({"kind": "companion"}, obs), ({"kind": "said", "ref": 3}, moment)]:
         assert errors_of(store, [item], source) == ["source.ref must be a non-empty string"], source
 
 

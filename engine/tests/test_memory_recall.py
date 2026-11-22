@@ -5,7 +5,7 @@ from companions.memory.recall import GAP_SECTIONS, brief, gaps, recall
 from companions.memory.retain import retain
 
 SAID = {"kind": "said", "ref": "sessions/a"}
-COACH = {"kind": "coach", "ref": "sessions/a"}
+COMPANION = {"kind": "companion", "ref": "sessions/a"}
 
 
 def run(store, items, source=SAID):
@@ -28,7 +28,7 @@ def fixture(tmp_path):
     run(store, [{"type": "claim", "about": "m1", "key": "leads", "statement": "60 leads",
                  "value": 60, "quote": "60"}])
     run(store, [{"type": "observation", "about": "person",
-                 "statement": "Starts with numbers"}], COACH)
+                 "statement": "Starts with numbers"}], COMPANION)
     run(store, [{"type": "occasion", "name": "Demo day", "uses": ["m1"]}])
     return open_bank(directory)[1]
 
@@ -98,8 +98,8 @@ def test_brief_shows_telling_entity_claims_status_and_occasions(tmp_path):
     ])
     run(store, [{"type": "claim", "about": "m1", "key": "beta_testers", "statement": "30 testers",
                  "value": 30, "unit": "beta testers", "quote": "thirty"}],
-        {"kind": "transcript", "ref": "sessions/a/take_02"})
-    run(store, [{"type": "observation", "about": "telling", "statement": "Rushes the end"}], COACH)
+        {"kind": "build", "ref": "sessions/a/take_02"})
+    run(store, [{"type": "observation", "about": "telling", "statement": "Rushes the end"}], COMPANION)
     out = brief(open_bank(directory)[1], "Ana " + "N" * 200)
     heads = ["## Themes", "## How they tell it", "## Timeline", "## People", "## Occasions",
              "## Open conflicts", "## Gaps"]
@@ -119,8 +119,8 @@ def test_confirmed_observation_leaves_gaps_and_counts_its_evidence(tmp_path):
     store = open_bank(directory)[0]
     ev = [{"ref": f"sessions/a/take_0{i}", "quote": f"q{i}"} for i in (1, 2, 3)]
     run(store, [{"type": "observation", "about": "person", "statement": "Builds for others",
-                 "evidence": ev}], COACH)
-    run(store, [{"type": "observation", "about": "person", "statement": "Thin one"}], COACH)
+                 "evidence": ev}], COMPANION)
+    run(store, [{"type": "observation", "about": "person", "statement": "Thin one"}], COMPANION)
     assert [g["id"] for g in gaps(open_bank(directory)[1]) if g["gap"] == "thin_observation"] == ["o1", "o2"]
     run(store, [{"op": "confirm", "id": "o1", "quote": "yes, that's me"}])
     run(store, [{"op": "cite", "id": "o1", "quote": "again", "ref": "sessions/b"}])
@@ -133,6 +133,6 @@ def test_confirmed_observation_leaves_gaps_and_counts_its_evidence(tmp_path):
 def test_long_observation_keeps_its_evidence_and_reading_label(tmp_path):
     directory = create_bank(tmp_path, "Ana")
     store = open_bank(directory)[0]
-    run(store, [{"type": "observation", "about": "telling", "statement": "word " * 60}], COACH)
+    run(store, [{"type": "observation", "about": "telling", "statement": "word " * 60}], COMPANION)
     line = [x for x in brief(open_bank(directory)[1], "Ana").splitlines() if x.startswith("- [o1]")][0]
     assert len(line) <= 120 and line.endswith("… (0 evidence) (coach's reading)")

@@ -81,15 +81,15 @@ def _with_claims(bank: Bank, line: str, about: str) -> str:
 
 
 def evidence_count(o: dict) -> int:
-    """The evidence quotes plus the distinct places outside the coach that back it."""
-    refs = {str(s.get("ref")).casefold() for s in o["sources"] if s.get("kind") != "coach"}
+    """The evidence quotes plus the distinct places outside the companions that back it."""
+    refs = {str(s.get("ref")).casefold() for s in o["sources"] if s.get("kind") != "companion"}
     return len(o["data"].get("evidence") or []) + len(refs)
 
 
 def observation_line(o: dict) -> str:
     srcs = o["sources"]
     reading = (" (coach's reading)"
-               if srcs and all(s.get("kind") == "coach" for s in srcs) and not o["confirmed"]
+               if srcs and all(s.get("kind") == "companion" for s in srcs) and not o["confirmed"]
                else "")
     # Cap the statement, not the line: the evidence count and the reading label must survive.
     head, tail = f"- [{o['id']}] ", f" ({evidence_count(o)} evidence){reading}"

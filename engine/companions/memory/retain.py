@@ -5,7 +5,7 @@ from datetime import datetime
 
 from . import claims
 from .bank import Bank
-from .schema import (ENTITY_KINDS, FIELDS, PREFIX, REQUIRED, SOURCE_KINDS, TEXT, TEXT_LISTS,
+from .schema import (ENTITY_KINDS, FIELDS, PREFIX, REQUIRED, BY, SOURCE_KINDS, TEXT, TEXT_LISTS,
                      UPDATABLE, canonical_ref, normalise_name)
 from .store import MemoryStore
 
@@ -154,8 +154,8 @@ class _Planner:
             op = it.get("op", "add")
             if op not in OPS:
                 self.err(i, f"unknown op '{op}'")
-            elif self.kind == "coach" and not (op == "add" and it.get("type") == "observation"):
-                self.err(i, "a coach source can only add observations")
+            elif self.kind == "companion" and not (op == "add" and it.get("type") == "observation"):
+                self.err(i, "a companion source can only add observations")
             elif op in ("confirm", "resolve") and self.kind in SOURCE_KINDS and self.kind != "said":
                 self.err(i, f"{op} needs a 'said' source")
             else:
@@ -352,6 +352,8 @@ def retain(store: MemoryStore, batch: dict) -> dict:
         source = {}
     elif (kind := source.get("kind")) not in SOURCE_KINDS:
         errors.append(f"source.kind must be one of {', '.join(sorted(SOURCE_KINDS))}")
+    elif (by := source.get("by")) is not None and by not in BY:
+        errors.append(f"source.by must be one of {', '.join(BY)}")
     elif kind == "document":
         ref = source.get("ref")
         rec = bank.records.get(ref) if isinstance(ref, str) else None

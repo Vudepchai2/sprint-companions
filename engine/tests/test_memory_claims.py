@@ -4,7 +4,7 @@ from companions.memory import create_bank, open_bank
 from companions.memory.retain import retain
 
 SAID = {"kind": "said", "ref": "sessions/a"}
-TAKE = {"kind": "transcript", "ref": "sessions/a/take_03"}
+TAKE = {"kind": "build", "ref": "sessions/a/take_03"}
 BS = "\\"  # a Windows path separator
 
 
@@ -109,12 +109,12 @@ def test_same_session_relative_and_absolute_stays_said(bank):
     store, directory = bank
     run(store, [claim("leads", 100)], {"kind": "said", "ref": "sessions/sam-x"})
     run(store, [claim("leads", 100)], {"kind": "said", "ref": str(data_home() / "sessions" / "sam-x")})
-    run(store, [claim("leads", 100)], {"kind": "transcript", "ref": BS.join(["Sessions", "Sam-X", ""])})
+    run(store, [claim("leads", 100)], {"kind": "build", "ref": BS.join(["Sessions", "Sam-X", ""])})
     b = state(directory)
     assert [s["ref"] for s in b.records["c1"]["sources"]] == [
         "sessions/sam-x", "sessions/sam-x", "Sessions/Sam-X"]
     assert b.claim_status("c1") == "said"
-    run(store, [claim("leads", 100)], {"kind": "transcript", "ref": "sessions/sam-x/take_02"})
+    run(store, [claim("leads", 100)], {"kind": "build", "ref": "sessions/sam-x/take_02"})
     assert state(directory).claim_status("c1") == "corroborated"
 
 

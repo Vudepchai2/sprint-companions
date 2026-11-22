@@ -11,7 +11,8 @@ PREFIX = {
     "entity": "e", "moment": "m", "claim": "c", "observation": "o",
     "occasion": "oc", "source": "s", "conflict": "x",
 }
-SOURCE_KINDS = ("said", "document", "transcript", "coach")
+SOURCE_KINDS = ("said", "document", "build", "companion")
+BY = ("tt", "ks", "mm", "mr", "notes")
 ENTITY_KINDS = ("person", "org", "place", "event", "project", "other")
 
 FIELDS: dict[str, set[str]] = {
@@ -20,7 +21,7 @@ FIELDS: dict[str, set[str]] = {
                "what_changed", "meaning", "quotes"},
     "claim": {"about", "key", "statement", "value", "unit", "quote"},
     "observation": {"about", "statement", "evidence", "moments"},
-    "occasion": {"name", "audience", "date", "session", "uses", "outcome", "debrief"},
+    "occasion": {"name", "audience", "format", "date", "session", "uses", "outcome", "debrief"},
     "source": {"filename", "sha256", "stored"},
 }
 REQUIRED: dict[str, set[str]] = {
@@ -33,7 +34,7 @@ REQUIRED: dict[str, set[str]] = {
 # Value types checked by the write gate. Every other field is a reference, a list of
 # references, or checked on its own (`about`, `kind`, `date`, `value`, `evidence`).
 TEXT = {"name", "title", "when", "where", "what_happened", "what_changed", "meaning",
-        "key", "statement", "unit", "quote", "relation", "audience", "outcome", "session"}
+        "key", "statement", "unit", "quote", "relation", "audience", "format", "outcome", "session"}
 TEXT_LISTS = {"aliases", "quotes", "debrief"}
 # A value change is a new claim, never an update; an entity keeps its name.
 UPDATABLE: dict[str, set[str]] = {

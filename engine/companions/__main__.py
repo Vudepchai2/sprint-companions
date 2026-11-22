@@ -5,7 +5,7 @@ from pathlib import Path
 
 from . import __version__
 from .home import people_dir, read_settings, update_settings
-from .memory import create_bank
+from .memory import bank_slug, create_bank
 from .memory import cli as memory_cli
 
 
@@ -23,6 +23,11 @@ def cmd_bank(a):
         print('no bank yet; run: companions bank --ensure --name "<your name>"', file=sys.stderr)
         sys.exit(1)
     try:
+        existing = root / bank_slug(a.name)
+        if (existing / "person.json").exists():
+            update_settings(bank=existing.name)
+            print(existing)
+            return
         directory = Path(create_bank(root, a.name))
     except (ValueError, FileExistsError) as e:
         print(str(e), file=sys.stderr)

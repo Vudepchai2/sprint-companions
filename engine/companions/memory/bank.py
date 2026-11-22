@@ -86,7 +86,7 @@ class Bank:
         return "said"
 
     def moment_status(self, id: str) -> str:
-        told = any(s.get("kind") in ("said", "transcript") for s in self.records[id]["sources"])
+        told = any(s.get("kind") in ("said", "build") for s in self.records[id]["sources"])
         return "told" if told else "imported"
 
     def keys_for(self, about: str) -> list[str]:
