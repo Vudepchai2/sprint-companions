@@ -39,7 +39,7 @@ def test_brief_sections_and_timeline_order(fixture):
     pos = [out.index(h) for h in heads]
     assert pos == sorted(pos)
     assert out.index("[m1]") < out.index("[m2]")
-    assert "(coach's reading)" in out
+    assert "(companion's reading)" in out
     assert "open_conflict: 1" in out
     assert "- [x1] m1.leads: c1=100 vs c2=60" in out
 
@@ -105,7 +105,7 @@ def test_brief_shows_telling_entity_claims_status_and_occasions(tmp_path):
              "## Open conflicts", "## Gaps"]
     pos = [out.index("\n" + h + "\n") for h in heads]
     assert pos == sorted(pos)
-    assert "- [o1] Rushes the end (0 evidence) (coach's reading)" in _section(out, "## How they tell it")
+    assert "- [o1] Rushes the end (0 evidence) (companion's reading)" in _section(out, "## How they tell it")
     assert _section(out, "## Themes").strip() == "- none"
     timeline = _section(out, "## Timeline")
     assert "- [m1] Pilot launch · told · leads=100, beta_testers=30 (corroborated)" in timeline
@@ -135,4 +135,4 @@ def test_long_observation_keeps_its_evidence_and_reading_label(tmp_path):
     store = open_bank(directory)[0]
     run(store, [{"type": "observation", "about": "telling", "statement": "word " * 60}], COMPANION)
     line = [x for x in brief(open_bank(directory)[1], "Ana").splitlines() if x.startswith("- [o1]")][0]
-    assert len(line) <= 120 and line.endswith("… (0 evidence) (coach's reading)")
+    assert len(line) <= 120 and line.endswith("… (0 evidence) (companion's reading)")

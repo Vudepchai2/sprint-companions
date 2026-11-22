@@ -91,4 +91,4 @@ def test_companion_observation_reads_as_companions_reading(bank):
     run(store, [{"type": "observation", "about": "telling", "statement": "Rushes"}],
         {"kind": "companion", "ref": "sessions/a", "by": "tt"})
     line = observation_line(open_bank(directory)[1].records["o1"])
-    assert line.endswith("(0 evidence) (coach's reading)")
+    assert line.endswith("(0 evidence) (companion's reading)")

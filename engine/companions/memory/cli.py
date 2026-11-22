@@ -11,6 +11,8 @@ from .recall import brief, gaps, recall
 from .retain import BatchError, retain
 from .pages import write_pages
 from .sources import import_source
+from .stage import BriefError, render_brief
+from .pages import write_page
 
 
 def _fail(msg: str, code: int = 1):
@@ -104,6 +106,24 @@ def cmd_pages(a):
         print(p)
 
 
+def cmd_demo_brief(a):
+    _, bank = _open(a.bank)
+    try:
+        plan = json.loads(Path(a.plan).read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError as e:
+        _fail(f"plan file is not valid JSON: {e}")
+    try:
+        text = render_brief(bank, plan)
+    except BriefError as e:
+        for err in e.errors:
+            print(err, file=sys.stderr)
+        sys.exit(1)
+    out_dir = Path(a.bank) / "pages"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    body = text.split("\n", 2)[2].rstrip("\n").split("\n")  # write_page adds the header itself
+    print(write_page(out_dir / f"brief-{plan['occasion']}.md", body))
+
+
 def cmd_forget(a):
     store, _ = _open(a.bank)
     _retain(store, {"source": {"kind": "said", "ref": "forget"},
@@ -148,5 +168,6 @@ def register(sub) -> None:
         opt("--type"), opt("--since"), opt("--limit", type=int, default=10))
     add("gaps", cmd_gaps, pos("bank"))
     add("pages", cmd_pages, pos("bank"))
+    add("demo-brief", cmd_demo_brief, pos("bank"), pos("plan"))
     add("forget", cmd_forget, pos("bank"), pos("id"), opt("--reason", required=True))
     add("delete", cmd_delete, pos("bank"), opt("--yes", action="store_true"))

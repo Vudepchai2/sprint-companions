@@ -88,7 +88,7 @@ def evidence_count(o: dict) -> int:
 
 def observation_line(o: dict) -> str:
     srcs = o["sources"]
-    reading = (" (coach's reading)"
+    reading = (" (companion's reading)"
                if srcs and all(s.get("kind") == "companion" for s in srcs) and not o["confirmed"]
                else "")
     # Cap the statement, not the line: the evidence count and the reading label must survive.

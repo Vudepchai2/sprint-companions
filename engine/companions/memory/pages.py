@@ -99,6 +99,15 @@ def _open(bank: Bank) -> list[str]:
     return lines
 
 
+def write_page(path: Path, body: list[str]) -> Path:
+    """Write one generated page atomically: a temp file in the same folder, then a replace."""
+    path = Path(path)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text("\n".join([HEADER, "", *body]) + "\n", encoding="utf-8", newline="\n")
+    os.replace(tmp, path)
+    return path
+
+
 def write_pages(bank: Bank, name: str, out_dir: Path) -> list[Path]:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -111,9 +120,5 @@ def write_pages(bank: Bank, name: str, out_dir: Path) -> list[Path]:
     }
     paths = []
     for fname, body in pages.items():
-        path = out_dir / fname
-        tmp = out_dir / f"{fname}.tmp"
-        tmp.write_text("\n".join([HEADER, "", *body]) + "\n", encoding="utf-8", newline="\n")
-        os.replace(tmp, path)
-        paths.append(path)
+        paths.append(write_page(out_dir / fname, body))
     return paths
