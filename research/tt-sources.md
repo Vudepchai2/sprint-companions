@@ -5,14 +5,12 @@
 - Building Founder School from the start (Kasper Suomalainen interview) — Aalto ENTU blog, 2025/26 — https://entu.aalto.fi/post/building-founder-school-from-the-start-an-interview-with-kasper-suomalainen
   - Places Tai Tran in the lean core team (Founder Talks and Founder Sprint). No quotes from him.
 - My career from start to Finnish — Good News Finland / Business Finland, 2024 — https://goodnewsfinland.com/articles/my-career-from-start-to-finnish/2024/tai-tran-startups
-  - Only seen via search summary (page redirected, not read): moved to Finland from Vietnam in 2017; maps and connects Aalto's startup ecosystem; co-founded Slush'd in Tirana; scaled Junction hackathon globally; 2023 Forbes 30 Under 30 Europe candidate (Social Impact).
-  - Theme: bucking expectations, community-building, going global from a small ecosystem.
+  - Page redirected and was not read. Nothing from it is used.
 - Founder Sprint news and webinar pages — Aalto University — https://www.aalto.fi/en/news/the-runway-for-an-entrepreneurial-journey-students-13-week-sprint-into-startup-reality
   - Program context only: 13 weeks, weekly entrepreneur visits, build a product in about four weeks, pitch to a VC. Tai not quoted.
 
 ## Style summary
 - Material about his personal voice is not available; do not invent a catchphrase.
-- Public record points to a builder and connector: community, hackathons, events, global reach.
 - Founder Sprint design (his lead role): hands-on, prototype fast, test with real users, decide to build or kill.
 - Likely focus for brainstorming: wide idea generation, then testing with users; inferred from the program, not from his words.
 - Would not be a gatekeeper or theorist; unknown otherwise.

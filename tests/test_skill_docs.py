@@ -1,0 +1,150 @@
+import re
+import sys
+import unicodedata
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+PLUGIN = ROOT / "plugin"
+REFS = PLUGIN / "references"
+CODES = ["tt", "ks", "mm", "mr"]
+
+ROUTING = {
+    "tt": 'Use when the sprinter asks for ideas, a brainstorm, "what if" thinking or a bold alternative for their '
+          "startup or demo-day story, or calls on TT by name. Also the first companion for a sprinter with no memory "
+          "yet. Only when they ask for a view, never for coding tasks.",
+    "ks": "Use when the sprinter asks for a view on product, business model, pricing, unit economics, revenue or the "
+          "money side of their demo-day story, or calls on KS by name. Only when they ask for a view, never for "
+          "coding tasks such as building a pricing page.",
+    "mm": "Use when the sprinter asks about fundraising, investors, how much to raise, the pitch, ambition, or wants "
+          "an honest check on their demo-day story, or calls on MM by name. Only when they ask for a view, never for "
+          "coding tasks.",
+    "mr": "Use when the sprinter asks about their team, cofounders, hiring, people questions, or what the research or "
+          "evidence says, or calls on MR by name. Only when they ask for a view, never for coding tasks.",
+}
+BASE_HEADINGS = ["## Before you answer: catch up", "## First meeting", "## How deep to go",
+                 "## The take", "## Never", "## Handing over"]
+REAL_NAMES = ["Tai", "Tran", "Kasper", "Suomalainen", "Marten", "Mickos", "Maija", "Renko"]
+
+
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def _frontmatter(text: str) -> tuple[dict, str]:
+    assert text.startswith("---\n"), "SKILL.md must start with frontmatter"
+    head, body = text[4:].split("\n---\n", 1)
+    fields = {}
+    for line in head.splitlines():
+        key, _, value = line.partition(": ")
+        fields[key] = value
+    return fields, body
+
+
+def _section(text: str, heading: str) -> str:
+    return text.split(heading + "\n", 1)[1].split("\n## ", 1)[0]
+
+
+def _fold(s: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c)).casefold()
+
+
+@pytest.mark.parametrize("code", CODES)
+def test_companion_frontmatter(code):
+    fields, _ = _frontmatter(_read(PLUGIN / "skills" / code / "SKILL.md"))
+    assert fields["name"] == code
+    assert fields["description"] == ROUTING[code]
+    assert fields["allowed-tools"] == "Bash(companions *), Read"
+
+
+@pytest.mark.parametrize("code", CODES)
+def test_companion_body_points_at_base_persona_memory(code):
+    _, body = _frontmatter(_read(PLUGIN / "skills" / code / "SKILL.md"))
+    for path in ("${CLAUDE_SKILL_DIR}/persona.md",
+                 "${CLAUDE_SKILL_DIR}/../../references/base.md",
+                 "${CLAUDE_SKILL_DIR}/../../references/memory.md",
+                 "${CLAUDE_SKILL_DIR}/../../references/questions.md"):
+        assert path in body
+    assert "${CLAUDE_SESSION_ID}" in body
+
+
+def test_base_has_required_sections():
+    text = _read(REFS / "base.md")
+    positions = [text.find("\n" + h + "\n") for h in BASE_HEADINGS]
+    assert all(p >= 0 for p in positions), dict(zip(BASE_HEADINGS, positions))
+    assert positions == sorted(positions)
+
+
+def test_base_catch_up_asks_about_unknown_projects():
+    catch_up = _section(_read(REFS / "base.md"), "## Before you answer: catch up")
+    for needle in ("unknown_projects", "companions notes project", "companions bank --ensure",
+                   "companions notes read", "companions notes done --through", '"kind":"build"',
+                   '"by":"notes"', "companions memory brief", "companions memory gaps"):
+        assert needle in catch_up
+
+
+def test_base_invites_customer_call_habit():
+    assert "after a customer call" in _read(REFS / "base.md")
+
+
+def test_base_first_meeting_uses_the_exact_opt_in_question():
+    first = _section(_read(REFS / "base.md"), "## First meeting")
+    assert ("Want the companions to keep up with your build sessions? They only keep what you type, "
+            "on this machine. You can turn it off any time.") in first
+    assert "companions notes status" in first
+
+
+def test_base_never_covers_scores_questions_coding_and_invention():
+    never = _section(_read(REFS / "base.md"), "## Never").casefold()
+    for needle in ("score", "more than one question", "coding", "invent", "citation", "decide"):
+        assert needle in never
+
+
+def test_memory_md_rules():
+    text = _read(REFS / "memory.md")
+    for needle in ('"kind": "build"', '"by"', "sessions/${CLAUDE_SESSION_ID}", '"format"',
+                   "no records about named individuals"):
+        assert needle in text
+    assert "storycoach" not in text and "transcript" not in text.casefold()
+
+
+def test_questions_md_has_openers_angles_and_every_gap_section():
+    text = _read(REFS / "questions.md")
+    assert len(re.findall(r"^- ", _section(text, "## Openers"), re.M)) >= 5
+    assert len(re.findall(r"^- ", _section(text, "## Angles"), re.M)) >= 3
+    sys.path.insert(0, str(ROOT / "engine"))
+    try:
+        from companions.memory.recall import GAP_SECTIONS
+    finally:
+        sys.path.remove(str(ROOT / "engine"))
+    for name in set(GAP_SECTIONS.values()):
+        assert f"\n## {name}\n" in text, name
+
+
+def test_no_real_names_outside_persona_files():
+    allowed = {PLUGIN / "skills" / code / "persona.md" for code in CODES}
+    pattern = re.compile(r"\b(" + "|".join(_fold(n) for n in REAL_NAMES) + r")\b")
+    hits = []
+    for path in PLUGIN.rglob("*"):
+        if not path.is_file() or path in allowed:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        for n, line in enumerate(text.splitlines(), 1):
+            if pattern.search(_fold(line)):
+                hits.append(f"{path.relative_to(PLUGIN)}:{n}: {line.strip()}")
+    assert hits == []
+
+
+def test_no_real_names_check_folds_accents():
+    pattern = re.compile(r"\b(" + "|".join(_fold(n) for n in REAL_NAMES) + r")\b")
+    assert pattern.search(_fold("inspired by Mårten"))
+    assert pattern.search(_fold("MARTEN said"))
+
+
+def test_skill_docs_use_lf():
+    for path in [*REFS.glob("*.md"), *(PLUGIN / "skills").glob("*/SKILL.md")]:
+        assert b"\r\n" not in path.read_bytes(), path

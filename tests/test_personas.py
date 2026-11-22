@@ -26,6 +26,24 @@ def test_persona_has_sections_disclosure_and_sources(code):
     assert 3 <= len(re.findall(r"^- ", questions, re.M)) <= 5
 
 
+def _section(code, heading):
+    text = (PLUGIN / "skills" / code / "persona.md").read_text(encoding="utf-8")
+    return text.split(heading + "\n", 1)[1].split("\n## ", 1)[0]
+
+
 def test_mr_has_research_honesty_rule():
-    never = (PLUGIN / "skills" / "mr" / "persona.md").read_text(encoding="utf-8").split("## Never", 1)[1]
+    never = _section("mr", "## Never")
     assert "make up a citation" in never
+    assert "## Sources" not in never
+
+
+def test_tt_lists_phrases_as_the_companion_s():
+    talk = _section("tt", "## How they talk")
+    assert "**Phrases the companion uses" in talk
+    assert "Phrases he leans on" not in talk
+
+
+def test_mm_opens_with_one_question():
+    questions = _section("mm", "## Signature questions")
+    first = next(line for line in questions.splitlines() if line.startswith("- "))
+    assert first.count("?") == 1
