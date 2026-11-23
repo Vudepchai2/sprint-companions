@@ -170,3 +170,18 @@ def test_retain_keeps_any_other_batch_file(tmp_path):
     other_name = _batch(bank, [MOMENT], name="mine.json")
     assert run("memory", "retain", bank, other_name).returncode == 0
     assert other_name.exists()
+
+
+def test_demo_brief_with_a_missing_plan_file_fails_clean(tmp_path):
+    bank = _bank(tmp_path)
+    r = run("memory", "demo-brief", bank, tmp_path / "no-plan.json")
+    assert r.returncode == 1 and "Traceback" not in r.stderr and "plan file" in r.stderr
+
+
+def test_retain_with_an_unreadable_batch_fails_clean(tmp_path):
+    bank = _bank(tmp_path)
+    r = run("memory", "retain", bank, tmp_path / "missing.json")
+    assert r.returncode == 1 and "Traceback" not in r.stderr and "batch file" in r.stderr
+    (bank / "batch.json").mkdir()  # the bank's own batch path, but a folder: reading and removing both fail
+    r = run("memory", "retain", bank, bank / "batch.json")
+    assert r.returncode == 1 and "Traceback" not in r.stderr and "batch file" in r.stderr

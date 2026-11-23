@@ -87,11 +87,16 @@ def cmd_retain(a):
             path = Path(a.batch)
             try:
                 raw = path.read_text(encoding="utf-8-sig")
+            except OSError as e:
+                _fail(f"batch file can't be read: {e}")
             finally:
                 # <bank>/batch.json is consumed, accepted or not: Claude Code's Write tool won't
                 # overwrite a file it hasn't read, so the next batch must find no file there.
                 if _is_bank_batch(path, Path(a.bank)):
-                    path.unlink(missing_ok=True)
+                    try:
+                        path.unlink(missing_ok=True)
+                    except OSError:
+                        pass  # never hides why the read failed
         batch = json.loads(raw)
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         _fail(f"{'stdin batch' if from_stdin else 'batch file'} is not valid JSON: {e}")
@@ -134,7 +139,9 @@ def cmd_demo_brief(a):
     _, bank = _open(a.bank)
     try:
         plan = json.loads(Path(a.plan).read_text(encoding="utf-8-sig"))
-    except json.JSONDecodeError as e:
+    except OSError as e:
+        _fail(f"plan file can't be read: {e}")
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
         _fail(f"plan file is not valid JSON: {e}")
     try:
         text = render_brief(bank, plan)
