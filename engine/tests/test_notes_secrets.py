@@ -104,3 +104,34 @@ def test_ordinary_story_text_survives(s):
 def test_secret_and_token_still_go_when_the_value_looks_like_one(raw):
     out = redact(raw)
     assert out.endswith("[removed]") and not any(c.isdigit() for c in out)
+
+
+@pytest.mark.parametrize("raw,want", [
+    ("my API token: 3f9a1c2b4d5e6f708192a3b4c5d6e7f8, why does it 401?", "my API token: [removed], why does it 401?"),
+    ("the secret: a8f3k2m9q1, keep it safe", "the secret: [removed], keep it safe"),
+    ("secret: aB3$xY9!q", "secret: [removed]"),
+    ("secret: hunter2", "secret: [removed]"),
+    ("token: abc123", "token: [removed]"),
+    ("the secret: aBcDeFgHiJ; keep it", "the secret: [removed]; keep it"),
+    ("(token: x9y8z7)", "(token: [removed])"),
+])
+def test_bare_secret_and_token_values_go_whatever_their_shape(raw, want):
+    assert redact(raw) == want
+
+
+@pytest.mark.parametrize("s", [
+    "the secret: customers want sync",
+    "the secret: we listened",
+    "token: of appreciation",
+    "the secret: customers, not features",
+])
+def test_bare_secret_prose_with_plain_lowercase_word_survives(s):
+    assert redact(s) == s
+
+
+def test_long_dotted_run_redacts_fast():
+    import time
+    text = "a." * 10000
+    start = time.perf_counter()
+    redact(text)
+    assert time.perf_counter() - start < 1.0

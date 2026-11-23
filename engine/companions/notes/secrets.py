@@ -17,7 +17,7 @@ _PATTERNS = [
 ]
 # A password in a connection string, scheme://user:password@host: only the password goes. It can't
 # hold a / or an @, so a port and a path (https://host:8080/docs@v2) are never taken for one.
-_URL_PASSWORD = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://[^\s:/@]*:)([^\s/@]+)(@)")
+_URL_PASSWORD = re.compile(r"(?i)\b([a-z][a-z0-9+.-]{0,30}://[^\s:/@]*:)([^\s/@]+)(@)")
 # The credentials in an Authorization header, with or without a scheme word.
 _AUTH_HEADER = re.compile(r"(?i)(\bauthorization[\"']?\s*[:=]\s*[\"']?(?:(?:bearer|basic|token|digest)\s+)?)"
                           r"([^\s\"']{5,}[^\s\"'.,;:)])")  # a full stop or comma after it stays
@@ -34,18 +34,24 @@ _KEY_VALUE = re.compile(
     r"([\"']?\s*[:=]\s*)"
     r"(\"[^\"\n]*\"?|'[^'\n]*'?|\S+)")
 # "secret:" and "token:" are founder-speak too ("the secret: customers want sync"). For those two bare
-# words before a colon, an unquoted value goes only if it looks opaque: 8 characters or more of
-# letters and digits mixed, with no spaces.
+# words before a colon, an unquoted value stays only if it is a plain lowercase word. Anything with a
+# digit, a symbol or a capital goes, at any length. Trailing punctuation is split off first and kept.
 _PROSE_KEYS = ("secret", "token")
-_OPAQUE = re.compile(r"(?=[^\s]*\d)(?=[^\s]*[A-Za-z])[A-Za-z0-9_+/=.-]{8,}")
+_TRAILING = re.compile(r"[.,;:)!?]+$")
 _LONG_OPAQUE = re.compile(r"\b[A-Za-z0-9+/_-]{40,}\b")
 
 
 def _key_value(m: re.Match) -> str:
     key, sep, value = m.group(1), m.group(2), m.group(3)
-    if (key.lower() in _PROSE_KEYS and sep.strip() == ":" and value[:1] not in "\"'"
-            and not _OPAQUE.fullmatch(value)):
-        return m.group(0)
+    if key.lower() in _PROSE_KEYS and sep.strip() == ":" and value[:1] not in "\"'":
+        tail = _TRAILING.search(value)
+        tail = tail.group(0) if tail else ""
+        core = value[:len(value) - len(tail)]
+        if not core:
+            return m.group(0)
+        if core.isascii() and core.isalpha() and core.islower():
+            return m.group(0)
+        return key + sep + REMOVED + tail
     return key + sep + REMOVED
 
 
