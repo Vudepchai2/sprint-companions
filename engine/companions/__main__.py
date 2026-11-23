@@ -71,9 +71,13 @@ def cmd_hook(a):
     """
     try:
         from .notes import hooks
-        text = sys.stdin.buffer.read().decode("utf-8-sig", errors="replace")
+        if a.event == "prompt" and a.payload is not None:
+            text = hooks.take_payload(a.payload)  # read, then deleted at once
+        else:
+            text = sys.stdin.buffer.read().decode("utf-8-sig", errors="replace")
         if a.event == "prompt":
             hooks.prompt(text)
+            hooks.sweep_pending()
         else:
             out = hooks.session_start(text)
             if out:
@@ -109,6 +113,7 @@ def main(argv=None):
     n.set_defaults(fn=cmd_notes)
     h = sub.add_parser("hook", help="Claude Code hook entry points")
     h.add_argument("event", choices=("prompt", "session-start"))
+    h.add_argument("--payload", help="prompt only: read the hook payload from this file in notes/pending, then delete it")
     h.set_defaults(fn=cmd_hook)
     a = p.parse_args(argv)
     a.fn(a)
