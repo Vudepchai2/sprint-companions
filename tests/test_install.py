@@ -7,6 +7,7 @@ install.ps1 is checked for syntax and for the rules that keep it safe inside `ir
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -19,6 +20,8 @@ REPO = Path(__file__).resolve().parents[1]
 INSTALL_SH = REPO / "install.sh"
 INSTALL_PS1 = REPO / "install.ps1"
 RULES = ["Skill(sprint-companions:*)", "Bash(companions *)"]
+# Wherever this machine keeps git: Git\cmd on a GitHub Windows runner, /usr/bin on macOS and Linux.
+GIT = shutil.which("git") or "/usr/bin/git"
 
 FAKE_CLAUDE = r"""#!/bin/bash
 s="$FAKE_STATE"
@@ -73,14 +76,14 @@ def rig(tmp_path):
                 (stubs / "claude").unlink(missing_ok=True)
             env = dict(os.environ, HOME=str(home), CLAUDE_CONFIG_DIR=str(cfg), FAKE_STATE=str(state),
                        FAKE_PLUGIN_DIR=plugin.as_posix(), REAL_PY=Path(sys.executable).as_posix(),
-                       STUBS=str(stubs), INSTALLER=str(INSTALL_SH))
+                       STUBS=str(stubs), INSTALLER=str(INSTALL_SH), GIT_BIN=os.path.dirname(GIT))
             env.pop("COMPANIONS_HOME", None)
             if companions_home:
                 env["COMPANIONS_HOME"] = companions_home
             # A PATH with the fakes first and only the system's own tools after them, so a real
             # claude or uv on this machine is never reached.
             script = ('p() { if command -v cygpath >/dev/null 2>&1; then cygpath -u "$1"; else printf %s "$1"; fi; }; '
-                      'export PATH="$(p "$STUBS"):/usr/bin:/bin:/mingw64/bin"; '
+                      'export PATH="$(p "$STUBS"):$(p "$GIT_BIN"):/usr/bin:/bin"; '
                       'exec bash "$(p "$INSTALLER")" "$@"')
             return subprocess.run([BASH, "-c", script, "install", *args], env=env, capture_output=True,
                                   text=True, encoding="utf-8", stdin=subprocess.DEVNULL, timeout=120)
