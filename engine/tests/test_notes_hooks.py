@@ -81,6 +81,8 @@ def test_session_start_asks_once(home):
     ctx = out["hookSpecificOutput"]["additionalContext"]
     assert out["hookSpecificOutput"]["hookEventName"] == "SessionStart"
     assert OPT_IN_QUESTION in ctx and "companions notes on" in ctx
+    # On Windows, Claude Code also has a PowerShell tool, which can't run the bash launcher.
+    assert "with the Bash tool" in ctx
     assert run_cli("notes", "status").stdout.strip() == "asked"
     assert run_cli("hook", "session-start", input="{}").stdout == ""
 

@@ -13,7 +13,7 @@ OPT_IN_QUESTION = ("Want the companions to keep up with your build sessions? "
 CTX = ("Sprint companions: quiet notes are not set up yet. At a natural moment in this session, "
        "never in the middle of a task, ask the user once, in one line: "
        f"\"{OPT_IN_QUESTION}\" Then run `companions notes on` or `companions notes off` "
-       "to match their answer. Don't ask again.")
+       "with the Bash tool (never PowerShell) to match their answer. Don't ask again.")
 
 _BARE_SLASH = re.compile(r"/\S*")
 
