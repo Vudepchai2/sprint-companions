@@ -13,7 +13,9 @@
 # Hooks:
 #   `hook prompt` (UserPromptSubmit) is a fast path. It never installs anything, prints nothing
 #   (a prompt hook's stdout becomes context) and always exits 0 (exit 2 would block the user's
-#   prompt), whatever goes wrong. If the engine isn't installed at the pin, it does nothing.
+#   prompt), whatever goes wrong. It starts the engine only when the stamp file ($BIN/.engine-pin,
+#   written here after an install or a version check) matches the pin and settings.json has quiet
+#   notes on; otherwise it does nothing, without starting Python.
 #   `hook session-start` takes the normal install path, but every failure exits 0 and every
 #   launcher message goes to stderr; only the engine's own stdout is the hook output.
 #
@@ -145,6 +147,41 @@ if [ -e "$ENGINE" ] && [ "$ENGINE" -ef "$0" ]; then
   die 7
 fi
 
+# The pin the engine in $BIN was installed or checked at, written by this launcher. The prompt path
+# reads it instead of starting the engine to ask its version.
+STAMP="$BIN/.engine-pin"
+
+notes_on() { # is quiet_notes "on" in settings.json? Pure bash: no process starts
+  local home settings
+  if [ -n "${COMPANIONS_HOME:-}" ]; then
+    home="$COMPANIONS_HOME"
+  elif is_windows && [ -n "${USERPROFILE:-}" ]; then
+    home="$USERPROFILE/SprintCompanions" # Python's Path.home() on Windows
+  else
+    home="${HOME:-/nonexistent}/SprintCompanions"
+  fi
+  [ -f "$home/settings.json" ] || return 1
+  settings="$(<"$home/settings.json")" || return 1
+  [[ $settings =~ \"quiet_notes\"[[:space:]]*:[[:space:]]*\"on\" ]]
+}
+
+if [ "$MODE" = "prompt" ]; then
+  # Every prompt passes here, and on Windows each Python start costs 0.3-1.5 s. So the engine
+  # starts only when the stamp says it's at the pin and quiet notes are on. The engine still
+  # makes the real opt-in check; this only skips starting it when it would do nothing.
+  stamp=""
+  if [ -f "$STAMP" ]; then stamp="$(<"$STAMP")" || stamp=""; fi
+  stamp="${stamp//[[:space:]]/}"
+  if [ "$stamp" != "$PIN" ] || [ ! -x "$ENGINE" ] || ! notes_on; then
+    exit 0 # never install on the prompt path
+  fi
+  unset COMPANIONS_SHIM_ACTIVE
+  # The outer guard: stdout becomes prompt context and exit 2 blocks the prompt, so the engine's
+  # output and exit code are both thrown away.
+  "$ENGINE" "$@" >/dev/null 2>&1 || true
+  exit 0
+fi
+
 installed=""
 if [ -x "$ENGINE" ]; then
   installed="$("$ENGINE" version 2>/dev/null </dev/null || true)"
@@ -152,9 +189,7 @@ if [ -x "$ENGINE" ]; then
 fi
 
 if [ "$installed" != "companions $PIN" ]; then
-  if [ "$MODE" = "prompt" ]; then
-    exit 0 # never install on the prompt path
-  fi
+  rm -f "$STAMP" 2>/dev/null || true
   if [ -n "${COMPANIONS_ENGINE_URL:-}" ]; then
     SPEC="git+${COMPANIONS_ENGINE_URL}@v${PIN}#subdirectory=engine"
   else
@@ -171,14 +206,13 @@ if [ "$installed" != "companions $PIN" ]; then
     die 4
   fi
 fi
+stamp=""
+if [ -f "$STAMP" ]; then stamp="$(<"$STAMP")" || stamp=""; fi
+if [ "${stamp//[[:space:]]/}" != "$PIN" ]; then
+  printf '%s\n' "$PIN" >"$STAMP" 2>/dev/null || true
+fi
 
 unset COMPANIONS_SHIM_ACTIVE
-if [ "$MODE" = "prompt" ]; then
-  # The outer guard: stdout becomes prompt context and exit 2 blocks the prompt, so the engine's
-  # output and exit code are both thrown away.
-  "$ENGINE" "$@" >/dev/null 2>&1 || true
-  exit 0
-fi
 if [ -n "$MODE" ]; then
   trap - EXIT
   # session-start: keep the engine's stdout; its failure must not fail the host.

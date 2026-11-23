@@ -2,6 +2,7 @@
 
 Every test uses a fake `uv` and a fake engine: nothing is downloaded or installed.
 """
+import json
 import os
 import shutil
 import signal
@@ -92,10 +93,12 @@ class Rig:
         self.home = tmp / "home"
         self.toolbin = self.home / ".sprint-companions" / "engine-bin"  # the shim's default private bin
         self.local_bin = self.home / ".local" / "bin"  # where uv puts tools by default; on PATH
+        self.data = tmp / "data"  # COMPANIONS_HOME: quiet notes are on unless a test says otherwise
         self.log = tmp / "uv.log"
         self.env_log = tmp / "uv-env.log"
-        for d in (self.fakebin, self.empty, self.home):
+        for d in (self.fakebin, self.empty, self.home, self.data):
             d.mkdir()
+        self.notes("on")
         self.log.write_text("", encoding="utf-8")
         self.env_log.write_text("", encoding="utf-8")
         _write(self.fakebin / "uv", FAKE_UV)
@@ -113,14 +116,25 @@ class Rig:
         shutil.copyfile(self.engine_src, where / name)
         (where / name).chmod(0o755)
         (where / "fake-version").write_bytes(f"{version}\n".encode())
+        (where / ".engine-pin").write_bytes(f"{version}\n".encode())  # as the launcher leaves it
+
+    def notes(self, state: str | None, where: Path | None = None, text: str | None = None) -> None:
+        """Write settings.json with quiet_notes set to `state` (None: no settings file at all)."""
+        path = (where or self.data) / "settings.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if state is None:
+            path.unlink(missing_ok=True)
+        else:
+            path.write_text(text or json.dumps({"quiet_notes": state}, indent=2), encoding="utf-8")
 
     def env(self, path_dirs=None, **extra) -> dict:
-        drop = ("COMPANIONS_ENGINE_URL", "COMPANIONS_SHIM_ACTIVE", "COMPANIONS_ENGINE_BIN", "UV_TOOL_BIN_DIR")
+        drop = ("COMPANIONS_ENGINE_URL", "COMPANIONS_SHIM_ACTIVE", "COMPANIONS_ENGINE_BIN", "UV_TOOL_BIN_DIR",
+                "COMPANIONS_HOME")
         env = {k: v for k, v in os.environ.items() if k not in drop}
         dirs = [self.fakebin] if path_dirs is None else path_dirs
         tail = [] if path_dirs is not None else [os.environ.get("PATH", "")]
         env["PATH"] = os.pathsep.join([str(d) for d in dirs] + tail)
-        env.update(HOME=str(self.home), UV_LOG=str(self.log), UV_ENV_LOG=str(self.env_log),
+        env.update(HOME=str(self.home), COMPANIONS_HOME=str(self.data), UV_LOG=str(self.log), UV_ENV_LOG=str(self.env_log),
                    FAKE_ENGINE_SRC=str(self.engine_src), STDIN_LOG=str(self.tmp / "engine-stdin.txt"), **extra)
         return env
 
@@ -469,3 +483,71 @@ def test_hook_session_start_exits_0_when_install_fails(rig):
     code, out, err = rig.run("hook", "session-start", env=rig.env(path_dirs=[broken, os.environ.get("PATH", "")]))
     assert code == 0 and out == ""
     assert "couldn't install" in err
+
+
+# The prompt path runs on every prompt. Each Python start costs 0.3-1.5 s on Windows, so the
+# launcher checks the pin from a stamp file and quiet notes from settings.json in bash, and starts
+# the engine only when notes are on.
+
+def test_hook_prompt_trusts_the_stamp_and_skips_the_version_check(rig):
+    rig.install_engine(PIN)
+    (rig.toolbin / "fake-version").write_bytes(b"0.0.9\n")  # a `version` call would now say 0.0.9
+    code, out, err = rig.run("hook", "prompt")
+    assert code == 0 and out == "" and err == ""
+    assert rig.calls() == ["ENGINE [hook] [prompt]"]
+
+
+def test_hook_prompt_does_nothing_without_a_matching_stamp(rig):
+    rig.install_engine(PIN)
+    (rig.toolbin / ".engine-pin").unlink()
+    code, out, err = rig.run("hook", "prompt")
+    assert code == 0 and out == "" and err == ""
+    assert rig.calls() == []
+    (rig.toolbin / ".engine-pin").write_bytes(b"0.0.9\n")
+    assert rig.run("hook", "prompt")[0] == 0
+    assert rig.calls() == []
+
+
+@pytest.mark.parametrize("state", ["off", "asked", "unset", None, "damaged"])
+def test_hook_prompt_starts_no_engine_unless_notes_are_on(rig, state):
+    rig.install_engine(PIN)
+    if state == "damaged":
+        rig.notes("on", text='{"quiet_notes": "o')
+    else:
+        rig.notes(state)
+    code, out, err = rig.run("hook", "prompt")
+    assert code == 0 and out == "" and err == ""
+    assert rig.calls() == []
+
+
+def test_hook_prompt_reads_compact_settings_too(rig):
+    rig.install_engine(PIN)
+    rig.notes("on", text='{"bank":"me","quiet_notes":"on"}')
+    assert rig.run("hook", "prompt")[0] == 0
+    assert rig.calls() == ["ENGINE [hook] [prompt]"]
+
+
+def test_hook_prompt_finds_settings_in_the_default_data_folder(rig):
+    rig.install_engine(PIN)
+    rig.notes(None)
+    rig.notes("on", where=rig.home / "SprintCompanions")
+    env = rig.env()
+    env.pop("COMPANIONS_HOME")
+    env["USERPROFILE"] = str(rig.home)  # Python's Path.home() on Windows
+    assert rig.run("hook", "prompt", env=env)[0] == 0
+    assert rig.calls() == ["ENGINE [hook] [prompt]"]
+
+
+def test_install_writes_the_stamp(rig):
+    code, _, err = rig.run("status")
+    assert code == 0, err
+    assert (rig.toolbin / ".engine-pin").read_text(encoding="utf-8").strip() == PIN
+
+
+def test_a_matching_engine_gets_its_stamp_back(rig):
+    rig.install_engine(PIN)
+    (rig.toolbin / ".engine-pin").unlink()
+    code, _, err = rig.run("hook", "session-start")
+    assert code == 0, err
+    assert rig.installs() == []
+    assert (rig.toolbin / ".engine-pin").read_text(encoding="utf-8").strip() == PIN
