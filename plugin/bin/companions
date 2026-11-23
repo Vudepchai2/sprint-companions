@@ -207,9 +207,18 @@ if [ "$installed" != "companions $PIN" ]; then
   else
     SPEC="git+https://github.com/Vudepchai2/sprint-companions@v${PIN}#subdirectory=engine"
   fi
+  # Inside a hook or Claude Code's Bash tool nobody can answer a Git sign-in prompt, so Git must fail
+  # at once instead of waiting until the hook is killed: no terminal prompt, no Git Credential Manager
+  # window. A sprinter running this in their own terminal can still sign in.
+  if [ -n "$MODE" ] || [ ! -t 0 ]; then
+    export GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never
+  fi
   say "companions: installing the companions engine ${PIN} (once; this can take a few minutes)..."
   if ! "$UV" tool install --force --python 3.12 "$SPEC" >&2; then
-    say "companions: couldn't install the companions engine. Check the internet connection and try again."
+    say "companions: couldn't install the companions engine."
+    say "  While the repo is private, the likeliest cause is Git sign-in: in a terminal, run"
+    say "  gh auth login, then gh auth setup-git, and start a new Claude Code session."
+    say "  Otherwise check the internet connection and try again."
     die 4
   fi
   ENGINE="$(engine_path)"
