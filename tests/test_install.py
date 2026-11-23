@@ -7,7 +7,6 @@ install.ps1 is checked for syntax and for the rules that keep it safe inside `ir
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -20,8 +19,6 @@ REPO = Path(__file__).resolve().parents[1]
 INSTALL_SH = REPO / "install.sh"
 INSTALL_PS1 = REPO / "install.ps1"
 RULES = ["Skill(sprint-companions:*)", "Bash(companions *)"]
-# Wherever this machine keeps git: Git\cmd on a GitHub Windows runner, /usr/bin on macOS and Linux.
-GIT = shutil.which("git") or "/usr/bin/git"
 
 FAKE_CLAUDE = r"""#!/bin/bash
 s="$FAKE_STATE"
@@ -49,6 +46,15 @@ esac
 FAKE_LAUNCHER = "#!/bin/bash\n[ \"${1:-}\" = version ] && echo 'companions 0.1.0'\n"
 
 
+def _posix(path: Path) -> str:
+    """A path as Git Bash spells it (C:\\x\\y -> /c/x/y), worked out here rather than with cygpath,
+    which isn't on a trimmed PATH."""
+    p = Path(path).resolve()
+    if sys.platform == "win32" and p.drive:
+        return "/" + p.drive[0].lower() + p.as_posix()[len(p.drive):]
+    return p.as_posix()
+
+
 def _write(path: Path, text: str) -> None:
     path.write_bytes(text.encode("utf-8"))
     path.chmod(0o755)
@@ -65,6 +71,7 @@ def rig(tmp_path):
         d.mkdir(parents=True)
     _write(stubs / "claude", FAKE_CLAUDE)
     _write(stubs / "uv", FAKE_UV)
+    _write(stubs / "git", "#!/bin/bash\necho 'git version 0.0.0'\n")
     _write(plugin / "bin" / "companions", FAKE_LAUNCHER)
 
     class Rig:
@@ -76,15 +83,13 @@ def rig(tmp_path):
                 (stubs / "claude").unlink(missing_ok=True)
             env = dict(os.environ, HOME=str(home), CLAUDE_CONFIG_DIR=str(cfg), FAKE_STATE=str(state),
                        FAKE_PLUGIN_DIR=plugin.as_posix(), REAL_PY=Path(sys.executable).as_posix(),
-                       STUBS=str(stubs), INSTALLER=str(INSTALL_SH), GIT_BIN=os.path.dirname(GIT))
+                       STUBS=_posix(stubs), INSTALLER=_posix(INSTALL_SH))
             env.pop("COMPANIONS_HOME", None)
             if companions_home:
                 env["COMPANIONS_HOME"] = companions_home
-            # A PATH with the fakes first and only the system's own tools after them, so a real
-            # claude or uv on this machine is never reached.
-            script = ('p() { if command -v cygpath >/dev/null 2>&1; then cygpath -u "$1"; else printf %s "$1"; fi; }; '
-                      'export PATH="$(p "$STUBS"):$(p "$GIT_BIN"):/usr/bin:/bin"; '
-                      'exec bash "$(p "$INSTALLER")" "$@"')
+            # A PATH with the fakes (claude, uv, git) first and only the shell's own tools after them,
+            # so a real claude, uv or git on this machine is never reached.
+            script = 'export PATH="$STUBS:/usr/bin:/bin"; exec bash "$INSTALLER" "$@"'
             return subprocess.run([BASH, "-c", script, "install", *args], env=env, capture_output=True,
                                   text=True, encoding="utf-8", stdin=subprocess.DEVNULL, timeout=120)
 
