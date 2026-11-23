@@ -1,7 +1,7 @@
 ---
 name: panel
 description: Use when the sprinter asks what the other companions, everyone, or the panel thinks about a question, or calls /panel.
-allowed-tools: Bash(companions *), Read, Agent
+allowed-tools: Bash(companions *), Read, Write, Agent
 ---
 
 # Panel

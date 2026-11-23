@@ -6,7 +6,7 @@ Each sprinter has one **memory bank**, shared by all four companions: a folder u
 - `companions memory brief "<bank>"`: a short read of who they are, how they tell it, their moments in date order, people, occasions, open conflicts and gaps. A claim whose status isn't `said` shows it, as in `monthly_price=200 EUR per month (corroborated)`. Run it after every catch-up.
 - `companions memory gaps "<bank>"`: what the bank is missing, as JSON. Each gap names the `question_section` of `questions.md` to draw on.
 - `companions memory recall "<bank>" [--query <words>] [--about <id>] [--entity <name>] [--type <type>] [--since <date>] [--limit <n>]`: look things up before you ask or add. Each record shows its `sources`, with `kind`, `ref`, `at` and `by`, and its `status`.
-- `companions memory retain "<bank>" -`: write what you learned, with the batch on stdin (below).
+- `companions memory retain "<bank>" "<bank>/batch.json"`: write what you learned, from the batch file (below).
 - `companions memory import "<bank>" "<file>"`: copy a document in and register it. It prints a source id such as `s1`.
 - `companions memory pages "<bank>"`: rewrite the readable pages in `<bank>/pages/`.
 - `companions memory forget "<bank>" <id> --reason "<why>"`: retract one record.
@@ -30,15 +30,13 @@ Use the same ref for the whole conversation, whichever companion is speaking. On
 Retain in small batches, one cluster at a time. Never retain for the sake of it: no answer, no record.
 
 ## The batch shape
-A batch is one JSON object: a single `source` and a list of `items`. Pass it on stdin, in a quoted heredoc, so nothing is written to disk and nothing lands in the folder Claude Code was started in. The whole batch is checked first, and one error rejects all of it (the messages name the item).
+A batch is one JSON object: a single `source` and a list of `items`. Write it with the Write tool to `<bank>/batch.json`, in the real bank folder, then run `companions memory retain "<bank>" "<bank>/batch.json"`. The engine reads the file and removes it, accepted or not, so the next batch is always a fresh file and nothing lands in the folder Claude Code was started in. Never put a batch in the command itself (a heredoc, `echo` or a pipe): Claude Code stops a heredoc with JSON in it for the sprinter's approval, and an apostrophe in their words breaks the shell quoting. The whole batch is checked first, and one error rejects all of it (the messages name the item). Every batch below is the content of `<bank>/batch.json`.
 
-```
-companions memory retain "<bank>" - <<'EOF'
+```json
 {
   "source": {"kind": "said", "ref": "sessions/${CLAUDE_SESSION_ID}", "at": "2026-11-23", "by": "ks"},
   "items": [ ... ]
 }
-EOF
 ```
 
 - `source.kind` is one of `said` (they told you), `build` (what they typed while building, from quiet notes), `document` (an imported file; `ref` must be its source id, like `s1`) or `companion` (your own reading). `ref` is required and says where it came from. `at` is the date. A `build` source also has `project`, the last path part of the notes' folder, such as `clinic-app`.
@@ -64,8 +62,7 @@ Run `retain` and read the report. It lists what was `added` (with ids), which na
 ### Worked example
 The sprinter is building a booking app for clinics, in the folder `clinic-app`. At catch-up, one quiet-notes session holds three prompts: "add a cancel button to the booking form", "first clinic signed, €200/month, they want it synced with their booking system" and "fix the failing test in billing.py". Only the middle one is story material:
 
-```
-companions memory retain "<bank>" - <<'EOF'
+```json
 {
   "source": {"kind": "build", "ref": "sessions/4f2a9c1e", "at": "2026-11-18", "by": "notes", "project": "clinic-app"},
   "items": [
@@ -79,13 +76,11 @@ companions memory retain "<bank>" - <<'EOF'
      "value": 200, "unit": "EUR per month", "quote": "first clinic signed, €200/month"}
   ]
 }
-EOF
 ```
 
 A week later the sprinter tells KS: "the first clinic pays 150 a month after the pilot discount". Retain it with a `said` source and the same key. Look at `keys_by_about` from the last report, or `recall`, so you reuse `monthly_price` rather than inventing `price_per_month`:
 
-```
-companions memory retain "<bank>" - <<'EOF'
+```json
 {
   "source": {"kind": "said", "ref": "sessions/${CLAUDE_SESSION_ID}", "at": "2026-11-25", "by": "ks"},
   "items": [
@@ -93,13 +88,11 @@ companions memory retain "<bank>" - <<'EOF'
      "value": 150, "unit": "EUR per month", "quote": "the first clinic pays 150 a month after the pilot discount"}
   ]
 }
-EOF
 ```
 
 Same key, different number: the report shows a conflict (`x1`, between `c1` and `c2`), and both claims show as conflicted until it's resolved. Ask once (below). The sprinter answers "150 during the pilot, 200 from March." Both are true, but they count different things. Retain the second as its own claim, with a key from their words, and resolve the conflict with a `said` source and their quote:
 
-```
-companions memory retain "<bank>" - <<'EOF'
+```json
 {
   "source": {"kind": "said", "ref": "sessions/${CLAUDE_SESSION_ID}", "at": "2026-11-25", "by": "ks"},
   "items": [
@@ -109,13 +102,11 @@ companions memory retain "<bank>" - <<'EOF'
      "quote": "150 during the pilot, 200 from March."}
   ]
 }
-EOF
 ```
 
 Then the sprinter tells MM about demo day. The audience goes on the occasion, in their words:
 
-```
-companions memory retain "<bank>" - <<'EOF'
+```json
 {
   "source": {"kind": "said", "ref": "sessions/${CLAUDE_SESSION_ID}", "at": "2026-11-25", "by": "mm"},
   "items": [
@@ -124,13 +115,11 @@ companions memory retain "<bank>" - <<'EOF'
      "audience": "seed investors and corporates, they care about paying customers"}
   ]
 }
-EOF
 ```
 
 **A number under a different key.** Later the sprinter says "we've got 3 clinics on the pilot". That isn't the same as one signed clinic, so don't file it under an existing key: that would decide for them that a pilot is a sale. Retain it under a key from their words, such as `pilot_clinics`. The engine only catches a different number under the same key, so it reports nothing. Spotting a mismatch across keys is your job in Reflect. Retain your reading as a `telling` observation, then ask about it once with a question from `Recall: checking a number`:
 
-```
-companions memory retain "<bank>" - <<'EOF'
+```json
 {
   "source": {"kind": "companion", "ref": "sessions/${CLAUDE_SESSION_ID}", "at": "2026-11-26", "by": "ks"},
   "items": [
@@ -141,7 +130,6 @@ companions memory retain "<bank>" - <<'EOF'
        {"ref": "sessions/${CLAUDE_SESSION_ID}", "quote": "we've got 3 clinics on the pilot"}]}
   ]
 }
-EOF
 ```
 
 ## Rules

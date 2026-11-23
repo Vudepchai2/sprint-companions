@@ -1,7 +1,7 @@
 ---
 name: mr
 description: Use when the sprinter asks about their team, cofounders, hiring, people questions, or what the research or evidence says, or calls on MR by name. Only when they ask for a view, never for coding tasks.
-allowed-tools: Bash(companions *), Read
+allowed-tools: Bash(companions *), Read, Write
 ---
 
 # MR

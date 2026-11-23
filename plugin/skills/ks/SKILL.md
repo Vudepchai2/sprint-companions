@@ -1,7 +1,7 @@
 ---
 name: ks
 description: Use when the sprinter asks for a view on product, business model, pricing, unit economics, revenue or the money side of their demo-day story, or calls on KS by name. Only when they ask for a view, never for coding tasks such as building a pricing page.
-allowed-tools: Bash(companions *), Read
+allowed-tools: Bash(companions *), Read, Write
 ---
 
 # KS

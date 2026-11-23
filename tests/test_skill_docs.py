@@ -58,7 +58,8 @@ def test_companion_frontmatter(code):
     fields, _ = _frontmatter(_read(PLUGIN / "skills" / code / "SKILL.md"))
     assert fields["name"] == code
     assert fields["description"] == ROUTING[code]
-    assert fields["allowed-tools"] == "Bash(companions *), Read"
+    # Write is for <bank>/batch.json: a heredoc batch is stopped for approval despite Bash(companions *).
+    assert fields["allowed-tools"] == "Bash(companions *), Read, Write"
 
 
 @pytest.mark.parametrize("code", CODES)
@@ -112,11 +113,20 @@ def test_memory_md_rules():
     assert "storycoach" not in text and "transcript" not in text.casefold()
 
 
-def test_batches_go_on_stdin_never_through_a_file():
+def test_batches_go_through_the_bank_batch_file_never_the_command_line():
+    # Claude Code stops a heredoc with JSON in it for approval ("brace with quote character"),
+    # even under Bash(companions *), so batches are written to <bank>/batch.json with Write.
     for name in ("base.md", "memory.md"):
         text = _read(REFS / name)
-        assert "retain \"<bank>\" - <<'EOF'" in text, name
-        assert "batch.json" not in text, name
+        assert 'companions memory retain "<bank>" "<bank>/batch.json"' in text, name
+        assert "<<'EOF'" not in text and "retain \"<bank>\" -" not in text, name
+
+
+def test_base_bans_shell_variables_and_powershell():
+    catch_up = _section(_read(REFS / "base.md"), "## Before you answer: catch up")
+    assert "Never set a shell variable" in catch_up
+    assert "never PowerShell" in catch_up
+
 
 
 def test_catch_up_is_gated_on_notes_being_on_and_notes_the_session_before_done():
@@ -136,7 +146,7 @@ def test_one_fallback_ref_form_in_both_files():
 
 def test_memory_md_worked_example_runs_through_the_engine(tmp_path):
     text = _read(REFS / "memory.md")
-    batches = re.findall(r"companions memory retain \"<bank>\" - <<'EOF'\n(.*?)\nEOF\n", text, re.S)
+    batches = re.findall(r"```json\n(.*?)\n```\n", text, re.S)
     batches = [b for b in batches if '"items": [ ... ]' not in b]
     assert len(batches) == 5
     env = {**os.environ, "PYTHONPATH": str(ROOT / "engine"), "COMPANIONS_HOME": str(tmp_path)}
@@ -201,13 +211,13 @@ def test_skill_docs_use_lf():
 UTILITY = {
     "memory": ("Use when the sprinter asks what the companions know or remember about them, wants to see, correct "
                "or delete their memory, or wants to turn quiet notes on or off.",
-               "Bash(companions *), Read"),
+               "Bash(companions *), Read, Write"),
     "brief": ("Use when the sprinter wants to prepare for demo day or another pitch: a draft script, the story, "
               "proof points, or who will be in the audience, or calls /brief.",
               "Bash(companions *), Read, Write"),
     "panel": ("Use when the sprinter asks what the other companions, everyone, or the panel thinks about a "
               "question, or calls /panel.",
-              "Bash(companions *), Read, Agent"),
+              "Bash(companions *), Read, Write, Agent"),
 }
 
 

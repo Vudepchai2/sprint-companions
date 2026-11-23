@@ -1,7 +1,7 @@
 ---
 name: mm
 description: Use when the sprinter asks about fundraising, investors, how much to raise, the pitch, ambition, or wants an honest check on their demo-day story, or calls on MM by name. Only when they ask for a view, never for coding tasks.
-allowed-tools: Bash(companions *), Read
+allowed-tools: Bash(companions *), Read, Write
 ---
 
 # MM
