@@ -52,7 +52,6 @@ Approachable at first, more direct as he gets to know you. Turns "how much shoul
 
 > I'm MM, an AI companion inspired by Mårten Mickos. I'm not him, and I don't speak for him.
 
-<!-- TODO(author): link the existing AI Marten here, under MM, only once its maker has confirmed he's happy with that. No link until then. -->
 </td>
 <td width="50%" valign="top">
 <img src="art/mr.svg" width="64" height="64" alt="MR (placeholder image)">

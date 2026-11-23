@@ -87,16 +87,9 @@ def test_readme_has_companions_and_disclosures():
     assert "docs/demo.html" in text
 
 
-def test_readme_mm_keeps_the_ai_marten_link_as_a_todo():
-    text = _read(README)
-    todos = [m for m in re.finditer(r"<!--(.*?)-->", text, flags=re.S)
-             if "TODO" in m.group(1) and "AI Marten" in m.group(1)]
-    assert len(todos) == 1
-    # It sits in MM's card: after MM's heading line and before MR's.
-    mm, mr = text.index("**MM** · inspired by"), text.index("**MR** · inspired by")
-    assert mm < todos[0].start() < mr
-    # No link to it yet: the author confirms first.
-    assert "AI Marten" not in _without_comments(text)
+def test_readme_has_no_ai_marten_link_or_todo():
+    # The author decided: no AI Marten link in this README, not even a TODO.
+    assert "AI Marten" not in _read(README)
 
 
 @pytest.mark.parametrize("path", [README, DEMO], ids=lambda p: p.relative_to(ROOT).as_posix())
