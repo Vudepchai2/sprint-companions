@@ -100,7 +100,7 @@ Most of your sprint happens while you're building, not while you're talking abou
   > Want the companions to keep up with your build sessions? They only keep what you type, on this machine. You can turn it off any time.
 
   Nothing is kept until you say yes. Say "stop keeping notes" at any time, or use `/memory`, to turn them off.
-- **Only what you type.** A small hook adds each prompt you type to a local inbox, with the time and the project folder. It never keeps Claude's replies, tool output or code. Anything that looks like a key, token or password is dropped before it's written. No AI runs while you build. The hook is silent, and it never blocks or fails your prompt.
+- **Only what you type.** A small hook adds each prompt you type to a local inbox on this machine, with the time and the project folder. It never keeps Claude's replies, tool output or code Claude writes. Anything you type or paste into a prompt is kept on this machine as you typed it, pasted code or error messages included, with anything that looks like a key, token or password removed first. No AI runs while you build. The hook is silent, and it never blocks or fails your prompt.
 - **Only your startup.** The first time the notes hold a folder the companions haven't seen, they ask once which folders are the startup:
 
   > Is `clinic-app` your startup? And `thesis-notes`?
@@ -131,7 +131,7 @@ The companion keeps it in your words, and it's there for the next question, the 
    > Draft: in your words, from your memory. Change anything that doesn't sound like you.
 
    - **A draft script**, sized to your format at about 150 spoken words a minute, with the estimated length shown. Each line cites the moment or claim it comes from, with your original words under it. Every number in a line has to appear in the record it cites: the engine rejects the brief otherwise, so the script can't invent or round a number.
-   - **Proof points**, corroborated ones first, each with its status. Conflicting numbers are flagged, never hidden.
+   - **Proof points**, confirmed ones first, then corroborated, each with its status. Conflicting numbers are flagged, never hidden.
    - **Before you go on stage**: the open questions, and the one question each relevant companion would still push on.
 3. It summarises the brief in the chat and offers to rehearse: read it aloud, say which line felt wrong, and you rework that line together, in your words.
 
@@ -201,16 +201,16 @@ Do this yourself in a terminal. Never paste passwords or tokens into Claude.
 
 Choose to install it for you (user scope). If Claude Code says to reload plugins, type `/reload-plugins`, or start a new session.
 
-**First run.** The first time it starts (in a new session, or at the first companion call), it installs the companions engine at the exact version this plugin pins, into a private folder (`~/.sprint-companions/engine-bin`), with a Python to run it. It happens once and can take a few minutes. Then try `/tt`, or just ask "what's the boldest thing we could show on demo day?"
+**First run.** The first time it starts (in a new session, or at the first companion call), it installs the companions engine at the exact version this plugin pins, into a private folder (`~/.sprint-companions/engine-bin`), with a Python to run it. It happens once per engine version (an update that changes the pin installs the new one) and can take a few minutes. Then try `/tt`, or just ask "what's the boldest thing we could show on demo day?"
 
 **Updates.** Type `/plugin`, open the **Marketplaces** tab, choose `sprint-companions` and **Update marketplace**, then open the plugin under **Installed** and choose **Update now**. The next companion call installs the matching engine by itself. Your memory isn't touched.
 
 ## Privacy
 
 - **Everything stays on your machine.** Your memory and the quiet-notes inbox live in `~/SprintCompanions` (on Windows, `%USERPROFILE%\SprintCompanions`). Set `COMPANIONS_HOME` to put them somewhere else.
-- **Nothing is uploaded, and there are no usage stats.** The engine makes no network calls. The only downloads are the engine itself and a Python to run it, once, through uv.
+- **Nothing is uploaded, and there are no usage stats.** The engine makes no network calls. The only downloads are the engine itself and a Python to run it, through uv, at first run and when an update changes the engine version.
 - **Claude still sees the conversation.** What you type, and the parts of your memory a companion reads to answer you, go to Claude like anything else in a Claude Code conversation.
-- **Quiet notes keep only what you type**, only after you opt in, and only from folders you've confirmed as the startup. Likely secrets are dropped before anything is written. Claude's replies, tool output and code are never kept. Anything left in the inbox is deleted after 30 days.
+- **Quiet notes keep only your prompts**, only after you opt in, and only from folders you've confirmed as the startup. They never keep Claude's replies, tool output or code Claude writes. Anything you type or paste into a prompt is kept on this machine, with secrets removed. Only the story material from it goes into your memory, and anything left in the inbox is deleted after 30 days.
 - **The demo-day audience** is kept only the way you describe it ("seed investors and corporates, they care about paying customers"). The companions keep no records about named people in the audience and research nobody.
 - **It's yours.** The readable pages in your memory folder are yours to open. Correct, forget, delete everything, or turn quiet notes off, any time, through `/memory`.
 
@@ -220,7 +220,7 @@ Choose to install it for you (user scope). If Claude Code says to reload plugins
 - **No voice.** There's no voice conversation and no recording. Type, or use your computer's dictation.
 - **No scores.** The companions don't measure your pitch or your delivery, and don't rate you, your idea or your team.
 - **No research on people.** The companions don't look up your audience, investors or market. Claude can already help with that in an ordinary conversation.
-- **Quiet notes mostly see code.** The story material from them is thin unless you tell a companion after a customer call.
+- **Quiet notes mostly see coding instructions.** The story material from them is thin unless you tell a companion after a customer call.
 - **Inspired by, not the real thing.** Each companion's style comes from public material and the author's notes, built in about three days. "Recognisable" was the bar, not "identical". They can be wrong, and they never speak for the people who inspired them.
 - **Claude Code only**, on Windows, macOS or Linux. There's no app of its own. On Windows it needs Git for Windows.
 - **A panel costs more.** One `/panel` question costs about four ordinary ones.

@@ -22,6 +22,8 @@ OPT_IN = ("Want the companions to keep up with your build sessions? They only ke
           "on this machine. You can turn it off any time.")
 STARTUP_Q = "Is `clinic-app` your startup? And `thesis-notes`?"
 DRAFT_HEADER = "Draft: in your words, from your memory. Change anything that doesn't sound like you."
+STATUSES = ("said", "corroborated", "confirmed", "conflicted")
+COMPANION_TURNS = 16  # every companion turn in the demo, panel takes included
 
 
 def _read(path: Path) -> str:
@@ -86,10 +88,28 @@ def test_readme_has_companions_and_disclosures():
 
 def test_readme_mm_keeps_the_ai_marten_link_as_a_todo():
     text = _read(README)
-    comments = re.findall(r"<!--(.*?)-->", text, flags=re.S)
-    assert any("TODO" in c and "AI Marten" in c for c in comments)
+    todos = [m for m in re.finditer(r"<!--(.*?)-->", text, flags=re.S)
+             if "TODO" in m.group(1) and "AI Marten" in m.group(1)]
+    assert len(todos) == 1
+    # It sits in MM's card: after MM's heading line and before MR's.
+    mm, mr = text.index("**MM** · inspired by"), text.index("**MR** · inspired by")
+    assert mm < todos[0].start() < mr
     # No link to it yet: the author confirms first.
     assert "AI Marten" not in _without_comments(text)
+
+
+@pytest.mark.parametrize("path", [README, DEMO], ids=lambda p: p.relative_to(ROOT).as_posix())
+def test_quiet_notes_capture_is_described_honestly(path):
+    """The hook keeps the whole typed prompt (secrets removed), so pasted code is kept too."""
+    text = _without_comments(_read(path)).replace("&#39;", "'")
+    flat = re.sub(r"<[^>]+>", "", text)
+    assert "never keeps Claude's replies, tool output or code Claude writes" in flat
+    assert re.search(r"type[sd]? or paste[sd]?", flat)
+    assert "secrets removed" in flat
+    # No claim that typed or pasted code is left out.
+    for over_promise in (r"(?<![a-z])no code(?![a-z])", r"tool output (?:or|and) code(?! Claude writes)",
+                         r"code (?:is|are) never kept", r"output and code are never"):
+        assert not re.search(over_promise, flat, re.I), over_promise
 
 
 @pytest.mark.parametrize("path", [README, DEMO, ART], ids=lambda p: p.relative_to(ROOT).as_posix())
@@ -127,8 +147,13 @@ def test_demo_page_follows_the_product_rules():
     assert DRAFT_HEADER in plain
     assert "(caught up on your last 4 build sessions)" in plain
     assert "Your call. Want to go deeper with one of them?" in plain
-    for status in ("said", "corroborated", "confirmed", "conflicted"):
-        assert status in plain, status
+    # Each status appears as a status, as the engine prints it ("· said ·", "· conflicted") or as
+    # the panel shows it ("(corroborated)"), not just as an ordinary word.
+    for status in STATUSES:
+        assert re.search(rf"(?:·\s*|\(){status}(?=\s*·|\)|\s*<)", plain), status
+    proof = plain.split("<h4>Proof</h4>", 1)[1].split("</ul>", 1)[0]
+    order = [re.search(rf"· {s} ·", proof).start() for s in ("confirmed", "corroborated", "said")]
+    assert order == sorted(order), "proof lists confirmed, then corroborated, then said"
     # Five moments, in the spec's order.
     moments = re.findall(r'<section class="moment" id="([a-z-]+)"', html)
     assert moments == ["catch-up", "routed", "memory-catch", "panel", "brief"]
@@ -139,8 +164,13 @@ def test_demo_page_follows_the_product_rules():
 def test_demo_companion_turns_ask_one_question():
     """Each companion turn in the demo asks at most one question."""
     html = _read(DEMO)
-    turns = re.findall(r'<div class="turn companion[^"]*"[^>]*>(.*?)</div>\s*<!-- /turn -->', html, flags=re.S)
-    assert len(turns) >= 12  # every companion turn, panel takes included
+    starts = [m.end() for m in re.finditer(r'<div class="turn companion[^"]*"[^>]*>', html)]
+    assert len(starts) == COMPANION_TURNS
+    turns = []
+    for n, (start, nxt) in enumerate(zip(starts, starts[1:] + [len(html)]), 1):
+        m = re.search(r"</div>\s*<!-- /turn -->", html[start:nxt])
+        assert m, f"companion turn {n} has no <!-- /turn --> marker"
+        turns.append(html[start:start + m.start()])
     for t in turns:
         # The startup-folder question is one question over several folders: "Is `a` your startup? And `b`?"
         body = re.sub(r"\?(\s*And <code>[^<]+</code>\?)+", "?", t)

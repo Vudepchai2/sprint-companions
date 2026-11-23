@@ -18,7 +18,7 @@
   --chip-bg: #eef1f4;
   --chip-ink: #33404d;
   --you: #5b5650;
-  --tt: #c9551f;
+  --tt: #b04a18;
   --ks: #23735f;
   --mm: #3a4fa8;
   --mr: #8f3a6b;
@@ -142,6 +142,18 @@ p { margin: 0 0 10px; }
 .avatar.mm { background: var(--mm); }
 .avatar.mr { background: var(--mr); }
 .avatar.brief, .avatar.panel { background: var(--muted); }
+@media (prefers-color-scheme: dark) {
+  .avatar { color: #141311; }
+}
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 .body { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .body p:last-child { margin-bottom: 0; }
 .hdr { font: 600 0.86rem/1.4 var(--mono); margin-bottom: 4px; }
@@ -164,13 +176,21 @@ code {
   border-radius: 4px;
   padding: 0 4px;
 }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 16px 10px 58px; }
+/* Annotations: notes for the reader of this page, not what the companions show. */
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 2px 16px 10px 58px; }
+.anno-label {
+  font: 600 0.68rem/1.5 var(--sans);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
 .chip {
   font: 0.78rem/1.5 var(--mono);
-  background: var(--chip-bg);
+  background: transparent;
   color: var(--chip-ink);
+  border: 1px dashed var(--line);
   border-radius: 999px;
-  padding: 2px 10px;
+  padding: 1px 10px;
   overflow-wrap: anywhere;
 }
 .chip.conflicted { color: var(--warn); }
@@ -190,6 +210,7 @@ code {
 .inbox li { display: grid; grid-template-columns: 7.5em 2.8em 1fr; gap: 8px; }
 .inbox .dim { color: var(--muted); }
 .system { font: 0.8rem/1.4 var(--mono); color: var(--muted); padding: 2px 16px 10px 58px; }
+.system .anno-label { margin-right: 6px; }
 
 /* Panel */
 .panel-take { border-top: 1px dashed var(--line); }
@@ -239,7 +260,7 @@ footer p { max-width: 70ch; }
 <header>
 <h1>Sprint companions</h1>
 <p class="lede">Four AI companions in Claude Code that help Founder Sprint sprinters turn their sprint into a demo-day story, in their own words. If the sprinter opts in, they keep up quietly while she builds, and spar with her only when she asks.</p>
-<p class="note">This page is illustrative. Leena and her clinic-scheduling startup, Slotbird, are fictional. The conversations are written to the product's real rules: one question per turn, her words quoted exactly, nothing decided for her. They are not a recording of a live session.</p>
+<p class="note">This page is illustrative. Leena and her clinic-scheduling startup, Slotbird, are fictional. The conversations are written to the product's real rules: one question per turn, her words quoted exactly, nothing decided for her. They are not a recording of a live session. Lines marked <span class="anno-label">Behind the scenes</span> are notes for you, the reader, not what the companions show.</p>
 </header>
 
 <section aria-labelledby="meet">
@@ -251,7 +272,7 @@ footer p { max-width: 70ch; }
 
 <article class="card">
 <div class="card-top">
-<svg viewBox="0 0 120 120" role="img" aria-label="TT placeholder image"><circle cx="60" cy="60" r="58" fill="#E8743B"/><path d="M66 14 L56 32 L68 32 L58 48" fill="none" stroke="#FFE3C7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><text x="60" y="88" text-anchor="middle" font-family="system-ui, sans-serif" font-size="34" font-weight="700" fill="#fff">TT</text></svg>
+<svg viewBox="0 0 120 120" role="img" aria-label="TT placeholder image"><circle cx="60" cy="60" r="58" fill="#B04A18"/><path d="M66 14 L56 32 L68 32 L58 48" fill="none" stroke="#FFE3C7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><text x="60" y="88" text-anchor="middle" font-family="system-ui, sans-serif" font-size="34" font-weight="700" fill="#fff">TT</text></svg>
 <div><div class="code">TT</div><p class="insp">inspired by Tai Tran</p></div>
 </div>
 <p class="lens">Ideas, brainstorming, “what if”, and your very first session.</p>
@@ -262,7 +283,7 @@ footer p { max-width: 70ch; }
 
 <article class="card">
 <div class="card-top">
-<svg viewBox="0 0 120 120" role="img" aria-label="KS placeholder image"><circle cx="60" cy="60" r="58" fill="#2E8A74"/><g fill="#CFF0E6"><rect x="36" y="24" width="10" height="16" rx="2"/><rect x="52" y="18" width="10" height="22" rx="2"/><rect x="68" y="28" width="10" height="12" rx="2"/></g><text x="60" y="84" text-anchor="middle" font-family="system-ui, sans-serif" font-size="34" font-weight="700" fill="#fff">KS</text></svg>
+<svg viewBox="0 0 120 120" role="img" aria-label="KS placeholder image"><circle cx="60" cy="60" r="58" fill="#1F6B57"/><g fill="#CFF0E6"><rect x="36" y="24" width="10" height="16" rx="2"/><rect x="52" y="18" width="10" height="22" rx="2"/><rect x="68" y="28" width="10" height="12" rx="2"/></g><text x="60" y="84" text-anchor="middle" font-family="system-ui, sans-serif" font-size="34" font-weight="700" fill="#fff">KS</text></svg>
 <div><div class="code">KS</div><p class="insp">inspired by Kasper Suomalainen</p></div>
 </div>
 <p class="lens">Product, business model, pricing, unit economics, money.</p>
@@ -322,12 +343,12 @@ footer p { max-width: 70ch; }
 </div>
 </div> <!-- /turn -->
 <div class="turn you">yes</div>
-<div class="system">quiet notes: on</div>
+<div class="system" role="note"><span class="anno-label">Behind the scenes</span> quiet notes: on</div>
 
 <div class="day">Tue 17 – Thu 19 Nov · building</div>
 <div class="aside">
 <h3>The inbox on Leena's laptop</h3>
-<p class="dim">Each prompt she types is added with its time and folder. Nothing else: no replies, no code. No AI runs.</p>
+<p class="dim">Each prompt she types or pastes is kept as typed, with its time and folder, and with secrets removed. It never keeps Claude's replies, tool output or code Claude writes. No AI runs.</p>
 <ul class="inbox">
 <li><span>slotbird</span><span class="dim">Tue</span><span>first clinic signed, €200/month, they want it synced with their booking system</span></li>
 <li><span>slotbird</span><span class="dim">Tue</span><span>fix the css on the booking form</span></li>
@@ -335,7 +356,7 @@ footer p { max-width: 70ch; }
 <li><span>slotbird</span><span class="dim">Wed</span><span>we lost two clinics to a cheaper tool, add a price comparison to the landing page</span></li>
 <li><span>slotbird</span><span class="dim">Thu</span><span>3 clinics on the pilot now, add a clinics table to the admin page</span></li>
 <li><span>thesis-notes</span><span class="dim">Thu</span><span class="dim">(not shown: not her startup)</span></li>
-<li><span class="dim">…</span><span></span><span class="dim">35 more prompts, mostly code</span></li>
+<li><span class="dim">…</span><span></span><span class="dim">35 more prompts, mostly coding instructions</span></li>
 </ul>
 </div>
 
@@ -362,7 +383,7 @@ footer p { max-width: 70ch; }
 <div class="aside">
 <h3>What catch-up kept</h3>
 <ul>
-<li>Story material only, in her words, with the source <code>quiet notes, slotbird</code>: the first clinic signing at €200/month, the sync going live, the two lost clinics, and “3 clinics on the pilot now”.</li>
+<li>Story material only, in her words, each with its source, such as <code>quiet notes, 2026-11-17</code>: the first clinic signing at €200/month, the sync going live, the two lost clinics, and “3 clinics on the pilot now”.</li>
 <li class="dim">Dropped: coding instructions such as “fix the css on the booking form”.</li>
 <li class="dim">Never read: <code>thesis-notes</code>. Its notes are deleted with the 30-day cleanup.</li>
 </ul>
@@ -378,7 +399,7 @@ footer p { max-width: 70ch; }
 <div class="transcript">
 <div class="day">Mon 23 Nov</div>
 <div class="turn you">how much should we raise after demo day?</div>
-<div class="chips"><span class="chip">routed: raising → MM</span></div>
+<div class="chips" role="note"><span class="anno-label">Behind the scenes</span><span class="chip">routed: raising → MM</span></div>
 <div class="turn companion">
 <span class="avatar mm" aria-hidden="true">MM</span>
 <div class="body">
@@ -397,10 +418,10 @@ footer p { max-width: 70ch; }
 <p>What's the one reason an investor says yes, in a sentence?</p>
 </div>
 </div> <!-- /turn -->
-<div class="chips"><span class="chip ok">lost_clinics = 2 · corroborated (Wednesday's notes, today)</span></div>
+<div class="chips" role="note"><span class="anno-label">Behind the scenes</span><span class="chip ok">lost_clinics = 2 · corroborated (Wednesday's notes, today)</span></div>
 <div class="day">Later that day</div>
 <div class="turn you">add a pricing page to the dashboard</div>
-<div class="system">A coding task: Claude just builds it. No companion speaks.</div>
+<div class="system" role="note"><span class="anno-label">Behind the scenes</span> A coding task: Claude just builds it. No companion speaks.</div>
 </div>
 </section>
 
@@ -420,7 +441,7 @@ footer p { max-width: 70ch; }
 <p>On Thursday you wrote <span class="v">&ldquo;3 clinics on the pilot now&rdquo;</span>, and today you said <span class="v">&ldquo;we have five clinics on the pilot now&rdquo;</span>. How do those fit together?</p>
 </div>
 </div> <!-- /turn -->
-<div class="chips"><span class="chip conflicted">pilot_clinics: 3 vs 5 · conflicted</span></div>
+<div class="chips" role="note"><span class="anno-label">Behind the scenes</span><span class="chip conflicted">pilot_clinics: 3 vs 5 · conflicted</span></div>
 <div class="turn you">3 were live on thursday, 2 more started this weekend</div>
 <div class="turn companion">
 <span class="avatar ks" aria-hidden="true">KS</span>
@@ -430,7 +451,7 @@ footer p { max-width: 70ch; }
 <p>Who else has actually paid, rather than said they would?</p>
 </div>
 </div> <!-- /turn -->
-<div class="chips"><span class="chip ok">pilot_clinics = 5 · confirmed</span><span class="chip">monthly_price = 200 EUR per month · said</span></div>
+<div class="chips" role="note"><span class="anno-label">Behind the scenes</span><span class="chip ok">pilot_clinics = 5 · confirmed</span><span class="chip">monthly_price = 200 EUR per month · said</span></div>
 </div>
 </section>
 
@@ -448,19 +469,19 @@ footer p { max-width: 70ch; }
 </div>
 <div class="turn companion panel-take" data-take="tt">
 <span class="avatar tt" aria-hidden="true">TT</span>
-<div class="body"><p>Lead with it. Open on <span class="v">&ldquo;every friday afternoon i was on the phone&rdquo;</span>, then the booking landing live. Cut everything that isn't that story. I could be wrong: tell it to a stranger and watch where they lean in.</p></div>
+<div class="body"><p><span class="sr-only">TT: </span>Lead with it. Open on <span class="v">&ldquo;every friday afternoon i was on the phone&rdquo;</span>, then the booking landing live. Cut everything that isn't that story. I could be wrong: tell it to a stranger and watch where they lean in.</p></div>
 </div> <!-- /turn -->
 <div class="turn companion panel-take" data-take="ks">
 <span class="avatar ks" aria-hidden="true">KS</span>
-<div class="body"><p>Only if <span class="v">&ldquo;€200/month&rdquo;</span> is on screen. Without the price it's a nice story. With it, it's a business.</p></div>
+<div class="body"><p><span class="sr-only">KS: </span>Only if <span class="v">&ldquo;€200/month&rdquo;</span> is on screen. Without the price it's a nice story. With it, it's a business.</p></div>
 </div> <!-- /turn -->
 <div class="turn companion panel-take" data-take="mm">
 <span class="avatar mm" aria-hidden="true">MM</span>
-<div class="body"><p>The clinic is your proof, so it can carry the opening. Then the room has to see past one clinic. What does Friday look like for every clinic once this works?</p></div>
+<div class="body"><p><span class="sr-only">MM: </span>The clinic is your proof, so it can carry the opening. Then the room has to see past one clinic. What does Friday look like for every clinic once this works?</p></div>
 </div> <!-- /turn -->
 <div class="turn companion panel-take" data-take="mr">
 <span class="avatar mr" aria-hidden="true">MR</span>
-<div class="body"><p>A story about one clinic is evidence about one clinic. You also wrote <span class="v">&ldquo;we lost two clinics to a cheaper tool&rdquo;</span>. What did those two clinics do before they left?</p></div>
+<div class="body"><p><span class="sr-only">MR: </span>A story about one clinic is evidence about one clinic. You also wrote <span class="v">&ldquo;we lost two clinics to a cheaper tool&rdquo;</span>. What did those two clinics do before they left?</p></div>
 </div> <!-- /turn -->
 <div class="panel-foot">
 <p><span class="label">Where they disagree:</span> story first (TT, MM) vs numbers first (KS), with MR asking what the lost clinics show.</p>
@@ -504,23 +525,25 @@ footer p { max-width: 70ch; }
 <div class="turn you">seed investors and corporates, they care about paying customers</div>
 
 <div class="page">
-<p class="path">pages/brief-oc1.md · excerpt</p>
+<p class="path">pages/brief-oc1.md</p>
 <h4>Demo-day brief: Demo day (2026-12-11)</h4>
 <p class="head-line">Draft: in your words, from your memory. Change anything that doesn't sound like you.</p>
 <p>Format: 3 minutes, slides, no Q&amp;A<br>Audience: seed investors and corporates, they care about paying customers</p>
 
-<h4>Draft script (about 2.8 minutes at speaking pace)</h4>
+<h4>Draft script (about 0.6 minutes at speaking pace)</h4>
 <ol>
 <li>Every Friday afternoon I was on the phone, moving appointments, while the waiting room sat empty.
 <span class="cite">“every friday afternoon i was on the phone moving appointments while the waiting room sat empty” — noted by TT</span></li>
-<li>Last Tuesday the first clinic signed, at €200 a month, and asked us to sync with their booking system.
+<li>In November the first clinic signed, at €200 a month, and asked us to sync with their booking system.
 <span class="cite">“first clinic signed, €200/month, they want it synced with their booking system” — quiet notes, 2026-11-17</span></li>
 <li>The next day the sync was live, and the clinic moved their whole Friday onto Slotbird.
 <span class="cite">“sync is live, the clinic moved their whole friday onto slotbird” — quiet notes, 2026-11-18</span></li>
-<li>Today five clinics are on the pilot.
+<li>By the end of November, five clinics were on the pilot.
 <span class="cite">“we have five clinics on the pilot now” — noted by KS</span></li>
+<li>We also lost two clinics to a cheaper tool. That's why we're raising: we can't sell and build at the same time.
+<span class="cite">“we lost two clinics to a cheaper tool” — quiet notes, 2026-11-18</span>
+<span class="cite">“we can't sell and build at the same time” — noted by MM</span></li>
 </ol>
-<p class="more">Beats 5 to 11 not shown.</p>
 
 <h4>Proof</h4>
 <ul>
@@ -542,7 +565,7 @@ footer p { max-width: 70ch; }
 <span class="avatar brief" aria-hidden="true">B</span>
 <div class="body">
 <p class="hdr">Brief · Demo day</p>
-<p>Saved to <code>pages/brief-oc1.md</code>: about 2.8 minutes for a 3-minute slot, with three proof points and three questions to settle before the stage.</p>
+<p>Saved to <code>pages/brief-oc1.md</code>: five beats, about 0.6 minutes of a 3-minute slot. That's all your memory holds so far, and nothing has been padded or invented to fill it. The questions under “Before you go on stage” are where the rest of the story can come from.</p>
 <p>Want to rehearse? read it aloud and tell me which line felt wrong</p>
 </div>
 </div> <!-- /turn -->

@@ -9,6 +9,7 @@ persona files), so their names are allowed even if the list holds them.
 """
 import os
 import re
+import sys
 import unicodedata
 from pathlib import Path
 
@@ -93,9 +94,13 @@ def find_hits(terms, files, root):
 def test_no_scrub_terms():
     terms = _terms()
     if not terms:
+        if (ROOT / ".scrub-list").is_file():
+            why = ".scrub-list holds no terms once the allowed names are left out"
+        else:
+            why = "no .scrub-list was found"
         if os.environ.get("COMPANIONS_REQUIRE_SCRUB") == "1":
-            pytest.fail("COMPANIONS_REQUIRE_SCRUB=1 but no .scrub-list was found")
-        pytest.skip("no .scrub-list present")
+            pytest.fail(f"COMPANIONS_REQUIRE_SCRUB=1 but {why}")
+        pytest.skip(why)
     hits = find_hits(terms, _files(), ROOT)
     assert not hits, "scrub-list hits (term not shown):\n" + "\n".join(hits)
 
@@ -115,7 +120,7 @@ def test_matcher_catches_underscore_accents_and_file_name(tmp_path):
 
 
 def test_the_four_names_are_allowed(tmp_path, monkeypatch):
-    monkeypatch.setattr(__import__(__name__), "ROOT", tmp_path, raising=False)
+    monkeypatch.setattr(sys.modules[__name__], "ROOT", tmp_path)
     (tmp_path / ".scrub-list").write_text("Marten Mickos\nRenko\ntai\nzorblax\n", encoding="utf-8")
     (tmp_path / "a.md").write_text("inspired by Mårten Mickos\ninspired by Maija Renko\nTai\nzorblax\n",
                                    encoding="utf-8")
@@ -133,7 +138,7 @@ def test_walk_skips_caches_and_covers_the_whole_repo():
 
 
 def test_binary_names_are_checked_but_not_their_contents(tmp_path, monkeypatch):
-    monkeypatch.setattr(__import__(__name__), "ROOT", tmp_path, raising=False)
+    monkeypatch.setattr(sys.modules[__name__], "ROOT", tmp_path)
     (tmp_path / "zorblax-icon.png").write_bytes(b"\x89PNG\r\n")
     (tmp_path / "plain.png").write_bytes(b"\x89PNG zorblax \xff\xfe")  # contents of a binary are never read
     (tmp_path / "cache").mkdir()
@@ -141,13 +146,21 @@ def test_binary_names_are_checked_but_not_their_contents(tmp_path, monkeypatch):
     assert hits == ["zorblax-icon.png (file name)"]
 
 
+def test_list_of_only_allowed_names_says_so(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys.modules[__name__], "ROOT", tmp_path)
+    (tmp_path / ".scrub-list").write_text("Maija Renko\n\nTai\n", encoding="utf-8")
+    monkeypatch.setenv("COMPANIONS_REQUIRE_SCRUB", "1")
+    with pytest.raises(pytest.fail.Exception, match="holds no terms"):
+        test_no_scrub_terms()
+
+
 def test_missing_list_skips_or_fails_when_required(tmp_path, monkeypatch):
-    monkeypatch.setattr(__import__(__name__), "ROOT", tmp_path, raising=False)
+    monkeypatch.setattr(sys.modules[__name__], "ROOT", tmp_path)
     monkeypatch.delenv("COMPANIONS_REQUIRE_SCRUB", raising=False)
     with pytest.raises(pytest.skip.Exception):
         test_no_scrub_terms()
     monkeypatch.setenv("COMPANIONS_REQUIRE_SCRUB", "1")
-    with pytest.raises(pytest.fail.Exception):
+    with pytest.raises(pytest.fail.Exception, match="no .scrub-list was found"):
         test_no_scrub_terms()
 
 
