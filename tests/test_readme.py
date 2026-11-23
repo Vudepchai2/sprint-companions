@@ -69,6 +69,7 @@ def test_readme_has_companions_and_disclosures():
     notes = _section(text, "Quiet notes")
     assert OPT_IN in notes
     assert STARTUP_Q in notes
+    assert 'say "keep notes" to turn them on later' in notes  # the opt-in is asked once, then only on request
 
     assert "after a customer call" in text.casefold()
 

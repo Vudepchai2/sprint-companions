@@ -50,6 +50,10 @@ def cmd_notes(a):
         if a.action in ("on", "off"):
             update_settings(quiet_notes=a.action)
             print(f"quiet notes: {a.action}")
+        elif a.action == "asked":  # the opt-in question was put; an answer already given stays
+            if notes_state() == "unset":
+                update_settings(quiet_notes="asked")
+            print(f"quiet notes: {notes_state()}")
         elif a.action == "status":
             print(notes_state())
         elif a.action == "read":
@@ -98,6 +102,7 @@ def main(argv=None):
     ns = n.add_subparsers(dest="action", required=True)
     ns.add_parser("on")
     ns.add_parser("off")
+    ns.add_parser("asked", help="the opt-in question was just asked; stops the session-start note")
     ns.add_parser("status")
     nr = ns.add_parser("read")
     nr.add_argument("--limit", type=_positive, default=150)

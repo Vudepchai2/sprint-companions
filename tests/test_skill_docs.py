@@ -130,12 +130,21 @@ def test_base_bans_shell_variables_and_powershell():
     assert "never PowerShell" in catch_up
 
 
-def test_opt_in_is_never_re_asked_once_asked():
+def test_opt_in_is_asked_while_unset_and_marked_once_really_asked():
     first = _section(_read(REFS / "base.md"), "## First meeting")
-    # Asked once: the session-start note asks in the conversation it opens; a companion in that
-    # same conversation covers for it, and no later conversation asks again.
-    assert "printed `unset` at catch-up, or printed `asked` and this conversation opened with" in first
-    assert "in an earlier conversation: never ask it again" in first
+    # The session-start note marks nothing: the question stays open while notes are `unset`, and the
+    # companion that really puts it runs `companions notes asked` in that turn, so no one asks twice.
+    assert "only if `companions notes status` printed `unset` at catch-up" in first
+    assert "run `companions notes asked`" in first
+    assert first.index("run `companions notes asked`") < first.index("never ask it again")
+    assert "`asked`, `on` or `off`" in first
+    assert "session-start note" not in first
+
+
+def test_my_memory_switching_notes_answers_the_opt_in():
+    text = _read(PLUGIN / "skills" / "my-memory" / "SKILL.md")
+    assert "companions notes on" in text and "companions notes off" in text
+    assert "answers the opt-in question too" in text
 
 
 def test_catch_up_is_gated_on_notes_being_on_and_notes_the_session_before_done():

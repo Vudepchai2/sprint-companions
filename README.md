@@ -95,11 +95,11 @@ before the second?
 
 Most of your sprint happens while you're building, not while you're talking about the story. Quiet notes catch that, if you want them to.
 
-- **Asked once.** At a natural moment in your first session, Claude asks, in one line:
+- **Asked once.** At a natural moment in a session, Claude asks, in one line (if your first session gives it no moment to ask, a later one does):
 
   > Want the companions to keep up with your build sessions? They only keep what you type, on this machine. You can turn it off any time.
 
-  Nothing is kept until you say yes. Say "stop keeping notes" at any time, or use `/my-memory`, to turn them off.
+  Nothing is kept until you say yes. Once it has been asked, it isn't asked again: say "keep notes" to turn them on later, "stop keeping notes" to turn them off, or use `/my-memory`.
 - **Only what you type.** A small hook adds each prompt you type to a local inbox on this machine, with the time and the project folder. It never keeps Claude's replies, tool output or code Claude writes. Anything you type or paste into a prompt is kept on this machine as you typed it, pasted code or error messages included, with anything that looks like a key, token or password removed first. No AI runs while you build. The hook is silent, and it never blocks or fails your prompt.
 - **Only your startup.** The first time the notes hold a folder the companions haven't seen, they ask once which folders are the startup:
 

@@ -2,10 +2,9 @@
 import json
 import re
 from datetime import datetime, timezone
-from pathlib import Path
 
 from . import inbox, notes_state
-from ..home import update_settings
+from ..home import settings_state
 from .secrets import redact
 
 OPT_IN_QUESTION = ("Want the companions to keep up with your build sessions? "
@@ -13,10 +12,13 @@ OPT_IN_QUESTION = ("Want the companions to keep up with your build sessions? "
 
 CTX = ("Sprint companions: quiet notes are not set up yet. At a natural moment in this session, "
        "never in the middle of a task, ask the user once, in one line: "
-       f"\"{OPT_IN_QUESTION}\" Then run `companions notes on` or `companions notes off` "
-       "with the Bash tool (never PowerShell) to match their answer. Don't ask again.")
+       f"\"{OPT_IN_QUESTION}\" In the turn where you ask it, run `companions notes asked` "
+       "with the Bash tool (never PowerShell), so it isn't asked again. When they answer, run "
+       "`companions notes on` or `companions notes off` with the Bash tool to match. "
+       "Don't ask again.")
 
 _BARE_SLASH = re.compile(r"/\S*")
+
 
 def prompt(stdin_text: str) -> None:
     """UserPromptSubmit: keep what the sprinter typed, secrets removed. Never raises, prints nothing.
@@ -43,12 +45,16 @@ def prompt(stdin_text: str) -> None:
 
 
 def session_start(stdin_text: str) -> str:
-    """SessionStart: prune the inbox, and ask for opt-in once. Returns the JSON to print, or ""."""
+    """SessionStart: prune the inbox, and ask for the opt-in. Returns the JSON to print, or "".
+
+    The note appears in every session while quiet notes are `unset`. It marks nothing itself: Claude
+    runs `companions notes asked` once it has really put the question, so a session that never found
+    a moment to ask leaves the next one to ask.
+    """
     try:
         inbox.prune(datetime.now(timezone.utc).date())
     except Exception:
         pass
-    if notes_state() != "unset":
-        return ""
-    update_settings(quiet_notes="asked")
+    if notes_state() != "unset" or settings_state()[0] == "unreadable":
+        return ""  # an unreadable settings file couldn't record the answer, so don't ask yet
     return json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": CTX}})

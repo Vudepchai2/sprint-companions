@@ -74,17 +74,36 @@ def test_prompt_hook_skips_empty_and_slash_only(home):
     assert [e["text"] for e in entries] == ["/mm should we raise?"]
 
 
-def test_session_start_asks_once(home):
+def test_session_start_note_asks_for_the_opt_in(home):
     r = run_cli("hook", "session-start", input="{}")
     assert r.returncode == 0 and r.stderr == ""
     out = json.loads(r.stdout)
     ctx = out["hookSpecificOutput"]["additionalContext"]
     assert out["hookSpecificOutput"]["hookEventName"] == "SessionStart"
     assert OPT_IN_QUESTION in ctx and "companions notes on" in ctx
+    assert "companions notes asked" in ctx  # run once the question has really been put
     # On Windows, Claude Code also has a PowerShell tool, which can't run the bash launcher.
     assert "with the Bash tool" in ctx
+
+
+def test_session_start_note_repeats_until_the_question_is_really_asked(home):
+    """The note only tells Claude to ask. If no natural moment came (a pure coding session, or the
+    sprinter quit early), the next session must ask again: emitting the note marks nothing."""
+    assert run_cli("hook", "session-start", input="{}").stdout != ""
+    assert run_cli("notes", "status").stdout.strip() == "unset"
+    assert run_cli("hook", "session-start", input="{}").stdout != ""
+    r = run_cli("notes", "asked")
+    assert (r.returncode, r.stdout.strip()) == (0, "quiet notes: asked")
     assert run_cli("notes", "status").stdout.strip() == "asked"
     assert run_cli("hook", "session-start", input="{}").stdout == ""
+
+
+@pytest.mark.parametrize("state", ["on", "off"])
+def test_notes_asked_never_undoes_an_answer(home, state):
+    run_cli("notes", state)
+    r = run_cli("notes", "asked")
+    assert r.returncode == 0 and r.stdout.strip() == f"quiet notes: {state}"
+    assert run_cli("notes", "status").stdout.strip() == state
 
 
 def test_opt_in_question_is_exact_copy():
