@@ -20,15 +20,39 @@ PIN = (ROOT / "engine-version.txt").read_text(encoding="utf-8").strip() if (ROOT
 DEFAULT_SPEC = f"git+https://github.com/Vudepchai2/sprint-companions@v{PIN}#subdirectory=engine"
 
 
+GIT_BASH = r"C:\Program Files\Git\bin\bash.exe"
+
+
+def _is_git_bash(b: str) -> bool:
+    try:
+        r = subprocess.run([b, "-c", "echo $OSTYPE"], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0 and r.stdout.strip().startswith(("msys", "cygwin"))
+
+
 def _bash():
-    b = shutil.which("bash")
-    if b and sys.platform == "win32" and "system32" in b.lower():
-        return None  # the WSL launcher, not Git Bash
-    return b
+    """bash to run the launcher with: on Windows, Git Bash only (Claude Code runs hooks with it), never
+    the WSL launcher in System32 that can come first on PATH."""
+    if sys.platform != "win32":
+        return shutil.which("bash")
+    for b in (shutil.which("bash"), GIT_BASH):
+        if b and os.path.isfile(b) and "system32" not in b.lower() and _is_git_bash(b):
+            return b
+    return None
 
 
 BASH = _bash()
-pytestmark = pytest.mark.skipif(BASH is None, reason="needs bash (Git Bash on Windows)")
+
+
+@pytest.fixture(autouse=True)
+def _needs_bash():
+    """Without bash the whole suite would skip, and CI would go green with it unrun. So
+    COMPANIONS_REQUIRE_BASH=1 (set in CI) turns the skip into a failure."""
+    if BASH is None:
+        if os.environ.get("COMPANIONS_REQUIRE_BASH") == "1":
+            pytest.fail("COMPANIONS_REQUIRE_BASH=1 but no bash (Git Bash on Windows) was found")
+        pytest.skip("needs bash (Git Bash on Windows)")
 
 # Like real uv: tools go to $UV_TOOL_BIN_DIR, else ~/.local/bin (the folder uv's installer puts on PATH).
 # It prints the bin dir exactly as given, so on Windows the shim must convert a Windows path back.
@@ -212,6 +236,16 @@ def _kill_tree(proc, marker: str) -> None:
         proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
         pass
+
+
+def test_missing_bash_skips_or_fails_when_required(monkeypatch):
+    monkeypatch.setattr(sys.modules[__name__], "BASH", None)
+    monkeypatch.delenv("COMPANIONS_REQUIRE_BASH", raising=False)
+    with pytest.raises(pytest.skip.Exception):
+        _needs_bash.__wrapped__()
+    monkeypatch.setenv("COMPANIONS_REQUIRE_BASH", "1")
+    with pytest.raises(pytest.fail.Exception):
+        _needs_bash.__wrapped__()
 
 
 @pytest.fixture

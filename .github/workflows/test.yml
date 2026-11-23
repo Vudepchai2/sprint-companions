@@ -17,5 +17,16 @@ jobs:
       - run: pip install pytest
       - name: Engine tests
         run: cd engine && python -m pytest -q
+      - name: Check that bash is Git Bash (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          case "$OSTYPE" in
+            msys* | cygwin*) echo "bash is Git Bash: $BASH" ;;
+            *) echo "bash is not Git Bash (OSTYPE=$OSTYPE); the launcher tests need it"; exit 1 ;;
+          esac
       - name: Plugin tests
-        run: pytest -q tests
+        # The launcher suite fails, rather than skips, when it finds no bash (Git Bash on Windows).
+        env:
+          COMPANIONS_REQUIRE_BASH: "1"
+        run: pytest -q -rs tests
