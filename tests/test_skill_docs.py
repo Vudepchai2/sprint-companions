@@ -231,27 +231,33 @@ def test_memory_contract():
     body = _utility_body("memory")
     for needle in ("12 lines", "Your sprint so far", "companions memory brief", "companions memory gaps",
                    "pages/", "companions memory forget", "companions memory delete", "companions notes off",
-                   "companions notes project"):
+                   "companions notes project", "companions memory recall", "the same `about` and the same `key`"):
         assert needle in body, needle
+    said_twice = body.split("**Said more than once:**", 1)[1].split("**Conflicts:**", 1)[0]
+    assert "`corroborated`" in said_twice and "only those" in said_twice
 
 
 def test_panel_contract():
     body = _utility_body("panel")
     for needle in ("2–4 lines", "Where they disagree:", "From your memory:",
                    "Your call. Want to go deeper with one of them?", "companions memory brief",
-                   "Never decide."):
+                   "Never decide.", 'companions memory recall "<bank>" --query', "recall excerpt",
+                   "Strip any question it ends with"):
         assert needle in body, needle
     for code in CODES:
         assert f"${{CLAUDE_SKILL_DIR}}/../{code}/persona.md" in body, code
-    takes = [body.index(f"`{code.upper()}`") for code in CODES]
-    assert takes == sorted(takes)
+    block = re.search(r"```\n(\s*Panel · .*?Your call\. Want to go deeper with one of them\?)\n", body, re.S).group(1)
+    rows = [line.split()[0] for line in block.splitlines()[1:5]]
+    assert rows == [code.upper() for code in CODES]
 
 
 def test_brief_contract():
     body = _utility_body("brief")
     for needle in ("companions memory demo-brief", '"occasion"', '"script"', '"cites"', '"proof"',
-                   '"before_stage"', "format", "150 words per minute", "brief-plan.json",
-                   "read it aloud and tell me which line felt wrong"):
+                   '"before_stage"', '"fields": {"format"', "150 words per minute", "brief-plan.json",
+                   "Read it aloud and tell me which line felt wrong", "fewer than 3",
+                   "never run `demo-brief` with an empty script", "isn't rewording a number",
+                   "Read it first", "`Brief · Demo day` until the occasion is known"):
         assert needle in body, needle
     assert "every number in a line must come from a cited record" in body.casefold()
 
@@ -297,3 +303,17 @@ def test_brief_example_plan_runs_through_the_engine(tmp_path):
     _, err = cli("memory", "demo-brief", bank, str(plan_file), ok=False)
     assert "beat 1: the number 40 is not in any record it cites" in err
     assert not page.exists()
+
+
+@pytest.mark.parametrize("name", sorted(UTILITY))
+def test_utility_skills_use_the_session_ref(name):
+    assert "sessions/${CLAUDE_SESSION_ID}" in _utility_body(name)
+
+
+@pytest.mark.parametrize("name", ["memory", "brief"])
+def test_fallback_by_gives_the_disclosure_before_the_first_retain(name):
+    body = _utility_body(name)
+    fallback = body.index("or `mm` if none has spoken")
+    disclosure = body.index("give the disclosure line from its persona file")
+    assert fallback < disclosure < fallback + 600
+    assert "${CLAUDE_SKILL_DIR}/../<code>/persona.md" in body
