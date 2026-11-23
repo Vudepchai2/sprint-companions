@@ -60,11 +60,14 @@ def test_readme_has_companions_and_disclosures():
         assert f"inspired by {NAMES[code]}" in text, code
 
     install = _section(text, "Install")
-    for needle in ("/plugin marketplace add Vudepchai2/sprint-companions",
+    for needle in ("raw.githubusercontent.com/Vudepchai2/sprint-companions/main/install.ps1 | iex",
+                   "raw.githubusercontent.com/Vudepchai2/sprint-companions/main/install.sh | bash",
+                   "/plugin marketplace add Vudepchai2/sprint-companions",
                    "/plugin install sprint-companions@sprint-companions",
-                   "uv", "Git for Windows", "gh auth login", "gh auth setup-git"):
+                   "uv", "Git for Windows"):
         assert needle in install, needle
-    assert "private" in install.casefold()
+    # The repository is public: no invitation, no GitHub sign-in step.
+    assert "gh auth" not in install and "invitation" not in install.casefold()
 
     notes = _section(text, "Quiet notes")
     assert OPT_IN in notes

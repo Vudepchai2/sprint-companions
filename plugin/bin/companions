@@ -216,9 +216,7 @@ if [ "$installed" != "companions $PIN" ]; then
   say "companions: installing the companions engine ${PIN} (once; this can take a few minutes)..."
   if ! "$UV" tool install --force --python 3.12 "$SPEC" >&2; then
     say "companions: couldn't install the companions engine."
-    say "  While the repo is private, the likeliest cause is Git sign-in: in a terminal, run"
-    say "  gh auth login, then gh auth setup-git, and start a new Claude Code session."
-    say "  Otherwise check the internet connection and try again."
+    say "  Check the internet connection and try again (start a new Claude Code session, or rerun the installer)."
     die 4
   fi
   ENGINE="$(engine_path)"

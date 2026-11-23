@@ -174,22 +174,35 @@ The memory is yours. It's also written out as readable pages you can open in any
 
 ## Install
 
-You need three things:
+You need **[Claude Code](https://claude.com/claude-code)** installed first. Then run one line in a terminal:
 
-- **[Claude Code](https://claude.com/claude-code).**
+- **Windows** (PowerShell):
+  ```
+  irm https://raw.githubusercontent.com/Vudepchai2/sprint-companions/main/install.ps1 | iex
+  ```
+- **macOS and Linux:**
+  ```
+  curl -fsSL https://raw.githubusercontent.com/Vudepchai2/sprint-companions/main/install.sh | bash
+  ```
+
+It walks you through five steps and says what it's doing at each one:
+
+1. Checks that Claude Code is installed. If it isn't, it stops and links to the install page.
+2. Checks for Git (on Windows, Git for Windows, whose bash Claude Code and the companions need). On Windows it offers to install it with winget.
+3. Checks for uv, a small installer for Python tools that needs no admin rights, and offers to install it.
+4. Adds the plugin to Claude Code and installs the companions engine.
+5. Offers to add three permission rules, so Claude Code doesn't ask before every companion command (see below).
+
+It asks before installing anything or changing your settings, and it's safe to run again: each step skips itself when it's already done. On Windows, to answer yes to everything, run `$env:SPRINT_COMPANIONS_YES = '1'` first; on macOS and Linux, end the line with `| bash -s -- --yes`. When it's done, open Claude Code in your startup's folder and type `/tt`.
+
+### Install by hand
+
+If you'd rather do each step yourself:
+
 - **Git.** On Windows, install **Git for Windows** (`winget install --id Git.Git -e`, or from git-scm.com) and restart Claude Code. Without it, Claude Code has no Bash tool and the companions can't run. On a Mac, accept the command line tools prompt if it appears.
-- **uv**, a small installer for Python tools. If it's missing, the first companion call stops and shows you the one command for your computer. It needs no admin rights:
+- **uv.** If it's missing, the first companion call stops and shows you the one command for your computer:
   - Windows (PowerShell): `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
   - macOS and Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-
-**While the repository is private.** During the private beta, accept the GitHub invitation you received first. Git then has to sign in to GitHub with that account, because both the plugin and its engine are fetched from this private repository. The surest way, on any computer, is GitHub's command line tool (`winget install --id GitHub.cli` on Windows, `brew install gh` on a Mac, or see cli.github.com). Then run, in a terminal:
-
-```
-gh auth login
-gh auth setup-git
-```
-
-Do this yourself in a terminal. Never paste passwords or tokens into Claude.
 
 **Then, in Claude Code,** type these two lines, one at a time:
 
@@ -200,7 +213,7 @@ Do this yourself in a terminal. Never paste passwords or tokens into Claude.
 
 Choose to install it for you (user scope). If Claude Code says to reload plugins, type `/reload-plugins`, or start a new session.
 
-**Fewer permission prompts (recommended).** Claude Code asks before a companion runs its `companions` commands after its first reply, and before it saves to your memory folder. To say yes once for good, type `/permissions`, choose **Allow**, and add these three rules:
+**Fewer permission prompts (recommended; the installer offers this).** Claude Code asks before a companion runs its `companions` commands after its first reply, and before it saves to your memory folder. To say yes once for good, type `/permissions`, choose **Allow**, and add these three rules:
 
 ```
 Skill(sprint-companions:*)

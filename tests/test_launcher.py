@@ -538,8 +538,8 @@ def test_hook_session_start_exits_0_with_stderr_message_when_uv_missing(rig):
 
 
 def _broken_uv(rig) -> Path:
-    """A uv whose install fails, as a clone of the private repo without a Git sign-in does. It logs the
-    Git prompt settings the install saw."""
+    """A uv whose install fails, as a clone with no network does. It logs the Git prompt settings the
+    install saw."""
     broken = rig.tmp / "brokenbin"
     _write(broken / "uv", "#!/bin/bash\n"
            'if [ "${1:-} ${2:-} ${3:-}" = "tool dir --bin" ]; then echo "$UV_TOOL_BIN_DIR"; exit 0; fi\n'
@@ -556,14 +556,14 @@ def test_hook_session_start_exits_0_when_install_fails(rig):
 
 
 @pytest.mark.parametrize("args", [("hook", "session-start"), ("version",)])
-def test_install_never_lets_git_prompt_and_names_the_sign_in(rig, args):
+def test_install_never_lets_git_prompt_and_says_what_to_check(rig, args):
     """In a hook, or under Claude Code's Bash tool, nobody can answer a Git sign-in prompt: Git would wait
-    until the hook is killed. While the repo is private, a missing sign-in is the likeliest failure."""
+    until the hook is killed."""
     broken = _broken_uv(rig)
     code, out, err = rig.run(*args, env=rig.env(path_dirs=[broken, os.environ.get("PATH", "")]))
     assert code == (0 if args[0] == "hook" else 4)
     assert rig.env_log.read_text(encoding="utf-8").splitlines() == ["0|never"]
-    assert "gh auth setup-git" in err and "sign-in" in err
+    assert "internet connection" in err and "gh auth" not in err
 
 
 # The prompt path runs on every prompt. Each Python start costs 0.3-1.5 s on Windows, so the
