@@ -8,9 +8,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SAID = {"kind": "said", "ref": "sessions/a"}
 
 
-def run(*args, cwd=ROOT, env=None, text=True):
+def run(*args, cwd=ROOT, env=None, text=True, input=None):
     return subprocess.run([sys.executable, "-m", "companions", *map(str, args)], capture_output=True, text=text,
-                          cwd=cwd, env={**os.environ, "PYTHONPATH": str(ROOT), **(env or {})})
+                          cwd=cwd, env={**os.environ, "PYTHONPATH": str(ROOT), **(env or {})}, input=input)
 
 
 def _batch(tmp_path, items, name="batch.json"):
@@ -60,6 +60,24 @@ def test_retain_accepts_bom_and_reports_bad_json(tmp_path):
     f.write_text("{nope", encoding="utf-8")
     r = run("memory", "retain", bank, f)
     assert r.returncode == 1 and "batch file is not valid JSON" in r.stderr
+
+
+def test_retain_reads_the_batch_from_stdin(tmp_path):
+    bank = _bank(tmp_path)
+    claim = {"type": "claim", "about": "@m", "key": "monthly_price", "statement": "The clinic pays €200 a month.",
+             "value": 200, "unit": "EUR per month", "quote": "first clinic signed, €200/month"}
+    batch = {"source": {"kind": "build", "ref": "sessions/s1", "at": "2026-11-18", "by": "notes",
+                        "project": "clinic-app"},
+             "items": [{**MOMENT, "ref": "@m"}, claim]}
+    r = run("memory", "retain", bank, "-", text=False,
+            input=("﻿" + json.dumps(batch, ensure_ascii=False)).encode("utf-8"))
+    assert r.returncode == 0, r.stderr.decode("utf-8")
+    assert [a["id"] for a in json.loads(r.stdout.decode("utf-8"))["added"]] == ["m1", "c1"]
+    events = [json.loads(line) for line in (bank / "log.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert events[-1]["data"]["quote"] == "first clinic signed, €200/month"
+    assert events[-1]["source"]["project"] == "clinic-app"
+    r = run("memory", "retain", bank, "-", input="{nope")
+    assert r.returncode == 1 and "batch is not valid JSON" in r.stderr
 
 
 def test_brief_prints_unicode_on_any_console(tmp_path):

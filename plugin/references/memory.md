@@ -6,7 +6,7 @@ Each sprinter has one **memory bank**, shared by all four companions: a folder u
 - `companions memory brief "<bank>"`: a short read of who they are, how they tell it, their moments in date order, people, occasions, open conflicts and gaps. A claim whose status isn't `said` shows it, as in `monthly_price=200 EUR per month (corroborated)`. Run it after every catch-up.
 - `companions memory gaps "<bank>"`: what the bank is missing, as JSON. Each gap names the `question_section` of `questions.md` to draw on.
 - `companions memory recall "<bank>" [--query <words>] [--about <id>] [--entity <name>] [--type <type>] [--since <date>] [--limit <n>]`: look things up before you ask or add. Each record shows its `sources`, with `kind`, `ref`, `at` and `by`, and its `status`.
-- `companions memory retain "<bank>" "<bank>/batch.json"`: write what you learned (below).
+- `companions memory retain "<bank>" -`: write what you learned, with the batch on stdin (below).
 - `companions memory import "<bank>" "<file>"`: copy a document in and register it. It prints a source id such as `s1`.
 - `companions memory pages "<bank>"`: rewrite the readable pages in `<bank>/pages/`.
 - `companions memory forget "<bank>" <id> --reason "<why>"`: retract one record.
@@ -14,7 +14,11 @@ Each sprinter has one **memory bank**, shared by all four companions: a folder u
 - `companions memory demo-brief "<bank>" "<plan.json>"`: render the demo-day brief. `/brief` uses it.
 
 ## The session ref
-Every retain from a conversation uses the ref `sessions/${CLAUDE_SESSION_ID}`, with the session id your `SKILL.md` printed. If that id is empty or still reads as a placeholder, use the `session` of the latest entry for the current folder in `companions notes read`. If there's none (quiet notes are off, or already digested), use `sessions/<YYYY-MM-DD>-<code>`, such as `sessions/2026-11-23-ks`. Use the same ref for the whole conversation: one conversation is one source, so a number said twice in it doesn't count as corroborated.
+Every retain from a conversation uses the ref `sessions/${CLAUDE_SESSION_ID}`, with the session id your `SKILL.md` printed. It matches the `session` that quiet notes keep for this conversation, so a number digested from this conversation's notes and then said again live stays one source.
+
+If that id is empty or still reads as a placeholder, use `sessions/<session>`, where `<session>` is the one you noted at catch-up: the newest entry for the folder you're running in, from the first `companions notes read`, before `notes done` took it out. If you noted none (quiet notes aren't on, or this folder isn't the startup), use `sessions/day-<YYYY-MM-DD>`, such as `sessions/day-2026-11-23`. That is the same form catch-up uses for notes with an empty `session`. It makes one source per day, which errs toward under-counting corroboration.
+
+Use the same ref for the whole conversation, whichever companion is speaking. One conversation is one source, so a number said twice in it doesn't count as corroborated.
 
 ## When to retain
 1. **After each answer that gives you a moment, a person, a number or a meaning:** retain it before your next question. Source: `said`, with `"by"` set to your code.
@@ -26,18 +30,20 @@ Every retain from a conversation uses the ref `sessions/${CLAUDE_SESSION_ID}`, w
 Retain in small batches, one cluster at a time. Never retain for the sake of it: no answer, no record.
 
 ## The batch shape
-A batch is one JSON file: a single `source` and a list of `items`. Write it to `<bank>/batch.json`, overwritten each time, never in the folder Claude Code was started in. The whole batch is checked first, and one error rejects all of it (the messages name the item).
+A batch is one JSON object: a single `source` and a list of `items`. Pass it on stdin, in a quoted heredoc, so nothing is written to disk and nothing lands in the folder Claude Code was started in. The whole batch is checked first, and one error rejects all of it (the messages name the item).
 
 ```
+companions memory retain "<bank>" - <<'EOF'
 {
   "source": {"kind": "said", "ref": "sessions/${CLAUDE_SESSION_ID}", "at": "2026-11-23", "by": "ks"},
   "items": [ ... ]
 }
+EOF
 ```
 
-- `source.kind` is one of `said` (they told you), `build` (what they typed while building, from quiet notes), `document` (an imported file; `ref` must be its source id, like `s1`) or `companion` (your own reading). `ref` is required and says where it came from. `at` is the date.
+- `source.kind` is one of `said` (they told you), `build` (what they typed while building, from quiet notes), `document` (an imported file; `ref` must be its source id, like `s1`) or `companion` (your own reading). `ref` is required and says where it came from. `at` is the date. A `build` source also has `project`, the last path part of the notes' folder, such as `clinic-app`.
 - `source.by` says who was speaking when it was retained: `tt`, `ks`, `mm` or `mr` for a companion, or `notes` for quiet notes. Always set it.
-- `build` counts as the sprinter's own words: its moments are "told", and its claims corroborate.
+- `build` counts as the sprinter's own words: its moments are "told", and its claims count toward corroboration like `said` ones. A claim is corroborated only when the same number comes from two different refs (two different sessions). The same session saying it twice is still one source.
 - Each item is `{"op": ..., ...}`. `op` defaults to `add`. The ops are `add`, `update`, `confirm`, `retract`, `cite` and `resolve`.
 - `add` needs a `type`:
   - `entity`: `name`, `kind` (person, org, place, event, project or other); optional `aliases`, `relation`.
@@ -53,14 +59,15 @@ A batch is one JSON file: a single `source` and a list of `items`. Write it to `
 - `confirm` takes `id` and `quote`, and `resolve` takes `conflict`, `keep` and `quote`. Both need a `said` source.
 - `retract` takes `id` and `reason`.
 
-Run `retain` and read the report. It lists what was `added` (with ids), which names were `linked` to an existing entity (with that entity's `kind` and `relation`), which claims were `cited` (same number said again, which corroborates it), any `conflicts`, and `keys_by_about`, the claim keys already used for each thing.
+Run `retain` and read the report. It lists what was `added` (with ids), which names were `linked` to an existing entity (with that entity's `kind` and `relation`), which claims were `cited` (the same number said again; it corroborates only when the new source has a different ref, which means a different session), any `conflicts`, and `keys_by_about`, the claim keys already used for each thing.
 
 ### Worked example
 The sprinter is building a booking app for clinics, in the folder `clinic-app`. At catch-up, one quiet-notes session holds three prompts: "add a cancel button to the booking form", "first clinic signed, €200/month, they want it synced with their booking system" and "fix the failing test in billing.py". Only the middle one is story material:
 
-```json
+```
+companions memory retain "<bank>" - <<'EOF'
 {
-  "source": {"kind": "build", "ref": "sessions/4f2a9c1e", "at": "2026-11-18", "by": "notes"},
+  "source": {"kind": "build", "ref": "sessions/4f2a9c1e", "at": "2026-11-18", "by": "notes", "project": "clinic-app"},
   "items": [
     {"type": "entity", "ref": "@clinic", "name": "First clinic", "kind": "org",
      "relation": "the first clinic to sign up"},
@@ -72,11 +79,13 @@ The sprinter is building a booking app for clinics, in the folder `clinic-app`. 
      "value": 200, "unit": "EUR per month", "quote": "first clinic signed, €200/month"}
   ]
 }
+EOF
 ```
 
 A week later the sprinter tells KS: "the first clinic pays 150 a month after the pilot discount". Retain it with a `said` source and the same key. Look at `keys_by_about` from the last report, or `recall`, so you reuse `monthly_price` rather than inventing `price_per_month`:
 
-```json
+```
+companions memory retain "<bank>" - <<'EOF'
 {
   "source": {"kind": "said", "ref": "sessions/${CLAUDE_SESSION_ID}", "at": "2026-11-25", "by": "ks"},
   "items": [
@@ -84,11 +93,13 @@ A week later the sprinter tells KS: "the first clinic pays 150 a month after the
      "value": 150, "unit": "EUR per month", "quote": "the first clinic pays 150 a month after the pilot discount"}
   ]
 }
+EOF
 ```
 
 Same key, different number: the report shows a conflict (`x1`, between `c1` and `c2`), and both claims show as conflicted until it's resolved. Ask once (below). The sprinter answers "150 during the pilot, 200 from March." Both are true, but they count different things. Retain the second as its own claim, with a key from their words, and resolve the conflict with a `said` source and their quote:
 
-```json
+```
+companions memory retain "<bank>" - <<'EOF'
 {
   "source": {"kind": "said", "ref": "sessions/${CLAUDE_SESSION_ID}", "at": "2026-11-25", "by": "ks"},
   "items": [
@@ -98,11 +109,13 @@ Same key, different number: the report shows a conflict (`x1`, between `c1` and 
      "quote": "150 during the pilot, 200 from March."}
   ]
 }
+EOF
 ```
 
 Then the sprinter tells MM about demo day. The audience goes on the occasion, in their words:
 
-```json
+```
+companions memory retain "<bank>" - <<'EOF'
 {
   "source": {"kind": "said", "ref": "sessions/${CLAUDE_SESSION_ID}", "at": "2026-11-25", "by": "mm"},
   "items": [
@@ -111,11 +124,13 @@ Then the sprinter tells MM about demo day. The audience goes on the occasion, in
      "audience": "seed investors and corporates, they care about paying customers"}
   ]
 }
+EOF
 ```
 
 **A number under a different key.** Later the sprinter says "we've got 3 clinics on the pilot". That isn't the same as one signed clinic, so don't file it under an existing key: that would decide for them that a pilot is a sale. Retain it under a key from their words, such as `pilot_clinics`. The engine only catches a different number under the same key, so it reports nothing. Spotting a mismatch across keys is your job in Reflect. Retain your reading as a `telling` observation, then ask about it once with a question from `Recall: checking a number`:
 
-```json
+```
+companions memory retain "<bank>" - <<'EOF'
 {
   "source": {"kind": "companion", "ref": "sessions/${CLAUDE_SESSION_ID}", "at": "2026-11-26", "by": "ks"},
   "items": [
@@ -126,6 +141,7 @@ Then the sprinter tells MM about demo day. The audience goes on the occasion, in
        {"ref": "sessions/${CLAUDE_SESSION_ID}", "quote": "we've got 3 clinics on the pilot"}]}
   ]
 }
+EOF
 ```
 
 ## Rules

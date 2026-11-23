@@ -67,10 +67,14 @@ def cmd_init(a):
 
 def cmd_retain(a):
     store, _ = _open(a.bank)
+    from_stdin = a.batch == "-"
     try:
-        batch = json.loads(Path(a.batch).read_text(encoding="utf-8-sig"))
-    except json.JSONDecodeError as e:
-        _fail(f"batch file is not valid JSON: {e}")
+        # stdin is read as bytes, so a batch is UTF-8 whatever the console's code page
+        raw = (sys.stdin.buffer.read().decode("utf-8-sig") if from_stdin
+               else Path(a.batch).read_text(encoding="utf-8-sig"))
+        batch = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        _fail(f"{'stdin batch' if from_stdin else 'batch file'} is not valid JSON: {e}")
     report = _retain(store, batch)
     print(json.dumps(report, ensure_ascii=False, indent=2), flush=True)  # before pages: the write succeeded
     _regen(Path(a.bank))

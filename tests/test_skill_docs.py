@@ -1,4 +1,7 @@
+import json
+import os
 import re
+import subprocess
 import sys
 import unicodedata
 from pathlib import Path
@@ -107,6 +110,51 @@ def test_memory_md_rules():
                    "no records about named individuals"):
         assert needle in text
     assert "storycoach" not in text and "transcript" not in text.casefold()
+
+
+def test_batches_go_on_stdin_never_through_a_file():
+    for name in ("base.md", "memory.md"):
+        text = _read(REFS / name)
+        assert "retain \"<bank>\" - <<'EOF'" in text, name
+        assert "batch.json" not in text, name
+
+
+def test_catch_up_is_gated_on_notes_being_on_and_notes_the_session_before_done():
+    catch_up = _section(_read(REFS / "base.md"), "## Before you answer: catch up")
+    assert catch_up.index("companions notes status") < catch_up.index("companions notes read")
+    assert '"project":"<project>"' in catch_up
+    assert "whenever `through` isn't null" in catch_up
+    assert catch_up.index("Note the `session`") < catch_up.index("companions notes done")
+
+
+def test_one_fallback_ref_form_in_both_files():
+    for name in ("base.md", "memory.md"):
+        text = _read(REFS / name)
+        assert "sessions/day-" in text, name
+        assert "-<code>`" not in text and "notes-<date>" not in text, name
+
+
+def test_memory_md_worked_example_runs_through_the_engine(tmp_path):
+    text = _read(REFS / "memory.md")
+    batches = re.findall(r"companions memory retain \"<bank>\" - <<'EOF'\n(.*?)\nEOF\n", text, re.S)
+    batches = [b for b in batches if '"items": [ ... ]' not in b]
+    assert len(batches) == 5
+    env = {**os.environ, "PYTHONPATH": str(ROOT / "engine"), "COMPANIONS_HOME": str(tmp_path)}
+
+    def cli(*args, input=None):
+        r = subprocess.run([sys.executable, "-m", "companions", *args], capture_output=True, env=env,
+                           input=input)
+        assert r.returncode == 0, r.stderr.decode("utf-8")
+        return r.stdout.decode("utf-8")
+
+    bank = cli("bank", "--ensure", "--name", "Example").strip()
+    reports = [json.loads(cli("memory", "retain", bank, "-",
+                              input=b.replace("${CLAUDE_SESSION_ID}", "live1").encode("utf-8")))
+               for b in batches]
+    assert reports[1]["conflicts"][0]["id"] == "x1"
+    assert reports[1]["conflicts"][0]["claims"] == ["c1", "c2"]
+    first = (Path(bank) / "log.jsonl").read_text(encoding="utf-8").splitlines()[0]
+    assert json.loads(first)["source"]["project"] == "clinic-app"
 
 
 def test_questions_md_has_openers_angles_and_every_gap_section():
