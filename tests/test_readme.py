@@ -184,3 +184,18 @@ def test_art_note_says_placeholders():
     text = _read(ART)
     assert "placeholder" in text.casefold()
     assert "original" in text.casefold()
+
+
+def test_privacy_says_which_folders_are_kept_and_which_are_read():
+    """The prompt hook keeps prompts from every folder; only confirmed startup folders are ever read."""
+    privacy = _section(_read(README), "Privacy")
+    assert "from every folder you work in" in privacy
+    assert "only notes from folders you've confirmed as the startup are ever read into your memory" in privacy
+    assert "only from folders you've confirmed as the startup" not in privacy
+    assert "deleted after 30 days" in privacy
+
+
+def test_allow_rules_say_deleting_is_always_asked_first():
+    install = _section(_read(README), "Install")
+    rules = install[install.index("**Fewer permission prompts"):install.index("**First run.**")]
+    assert "companions always ask you in the chat before deleting" in rules

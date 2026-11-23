@@ -100,7 +100,7 @@ Most of your sprint happens while you're building, not while you're talking abou
   > Want the companions to keep up with your build sessions? They only keep what you type, on this machine. You can turn it off any time.
 
   Nothing is kept until you say yes. Once it has been asked, it isn't asked again: say "keep notes" to turn them on later, "stop keeping notes" to turn them off, or use `/my-memory`.
-- **Only what you type.** A small hook adds each prompt you type to a local inbox on this machine, with the time and the project folder. It never keeps Claude's replies, tool output or code Claude writes. Anything you type or paste into a prompt is kept on this machine as you typed it, pasted code or error messages included, with anything that looks like a key, token or password removed first. No AI runs while you build. The hook is silent, and it never blocks or fails your prompt.
+- **Only what you type.** A small hook adds each prompt you type to a local inbox on this machine, with the time and the project folder. It never keeps Claude's replies, tool output or code Claude writes. Anything you type or paste into a prompt is kept on this machine as you typed it, pasted code or error messages included, with anything that looks like a key, token or password removed before it's written. No AI runs while you build. The hook is silent, and it never blocks or fails your prompt.
 - **Only your startup.** The first time the notes hold a folder the companions haven't seen, they ask once which folders are the startup:
 
   > Is `clinic-app` your startup? And `thesis-notes`?
@@ -209,7 +209,7 @@ Bash(companions *)
 Edit(~/SprintCompanions/**)
 ```
 
-The first lets Claude call a companion when you ask for one, the second runs the companions engine, and the third lets the companions write to your memory folder and nowhere else. (If you set `COMPANIONS_HOME`, use that folder in the third rule.)
+The first lets Claude call a companion when you ask for one, the second runs the companions engine, and the third lets the companions write to your memory folder and nowhere else. (If you set `COMPANIONS_HOME`, use that folder in the third rule.) The second also covers `companions memory delete`, which removes your whole memory, but the companions always ask you in the chat before deleting it, and delete only after a clear yes.
 
 **First run.** The first time it starts (in a new session, or at the first companion call), it installs the companions engine at the exact version this plugin pins, into a private folder (`~/.sprint-companions/engine-bin`), with a Python to run it. It happens once per engine version (an update that changes the pin installs the new one) and can take a few minutes. Then try `/tt`, or just ask "what's the boldest thing we could show on demo day?"
 
@@ -220,7 +220,7 @@ The first lets Claude call a companion when you ask for one, the second runs the
 - **Everything stays on your machine.** Your memory and the quiet-notes inbox live in `~/SprintCompanions` (on Windows, `%USERPROFILE%\SprintCompanions`). Set `COMPANIONS_HOME` to put them somewhere else.
 - **Nothing is uploaded, and there are no usage stats.** The engine makes no network calls. The only downloads are the engine itself and a Python to run it, through uv, at first run and when an update changes the engine version.
 - **Claude still sees the conversation.** What you type, and the parts of your memory a companion reads to answer you, go to Claude like anything else in a Claude Code conversation.
-- **Quiet notes keep only your prompts**, only after you opt in, and only from folders you've confirmed as the startup. They never keep Claude's replies, tool output or code Claude writes. Anything you type or paste into a prompt is kept on this machine, with secrets removed. Only the story material from it goes into your memory, and anything left in the inbox is deleted after 30 days.
+- **Quiet notes keep only your prompts**, and only after you opt in. They never keep Claude's replies, tool output or code Claude writes. Anything you type or paste into a prompt is kept in the inbox on this machine, from every folder you work in, with secrets removed before it's written. But only notes from folders you've confirmed as the startup are ever read into your memory, and only the story material from them. Anything left in the inbox is deleted after 30 days.
 - **The demo-day audience** is kept only the way you describe it ("seed investors and corporates, they care about paying customers"). The companions keep no records about named people in the audience and research nobody.
 - **It's yours.** The readable pages in your memory folder are yours to open. Correct, forget, delete everything, or turn quiet notes off, any time, through `/my-memory`.
 
