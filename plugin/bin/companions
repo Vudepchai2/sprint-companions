@@ -37,6 +37,9 @@ fi
 if [ -n "$MODE" ]; then
   trap 'exit 0' EXIT
 fi
+if [ "$MODE" = "prompt" ]; then
+  exec >/dev/null 2>&1 # silent by construction: not even bash's own errors reach stdout or stderr (stdin stays)
+fi
 
 say() { # a launcher message: stderr only, and nothing at all on the prompt path
   [ "$MODE" = "prompt" ] || echo "$@" >&2
@@ -143,7 +146,7 @@ fi
 
 installed=""
 if [ -x "$ENGINE" ]; then
-  installed="$("$ENGINE" version 2>/dev/null || true)"
+  installed="$("$ENGINE" version 2>/dev/null </dev/null || true)"
   installed="${installed%$'\r'}"
 fi
 

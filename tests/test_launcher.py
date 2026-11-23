@@ -63,6 +63,7 @@ if [ "${1:-}" = "version" ]; then
   printf 'companions %s\r\n' "$v"
   exit 0
 fi
+if [ "${1:-}" = "hook" ] && [ "${2:-}" = "prompt" ] && [ -n "${STDIN_LOG:-}" ]; then cat > "$STDIN_LOG"; fi
 out="ENGINE"
 for a in "$@"; do out="$out [$a]"; done
 printf '%s\n' "$out"
@@ -120,15 +121,17 @@ class Rig:
         tail = [] if path_dirs is not None else [os.environ.get("PATH", "")]
         env["PATH"] = os.pathsep.join([str(d) for d in dirs] + tail)
         env.update(HOME=str(self.home), UV_LOG=str(self.log), UV_ENV_LOG=str(self.env_log),
-                   FAKE_ENGINE_SRC=str(self.engine_src), **extra)
+                   FAKE_ENGINE_SRC=str(self.engine_src), STDIN_LOG=str(self.tmp / "engine-stdin.txt"), **extra)
         return env
 
-    def run(self, *args, env=None, timeout=30):
+    def run(self, *args, env=None, timeout=30, input=None):
         # Output goes to files, not pipes: a runaway grandchild holding a pipe can't block the test.
         out_f, err_f = self.tmp / "stdout.txt", self.tmp / "stderr.txt"
-        with open(out_f, "wb") as out, open(err_f, "wb") as err:
+        in_f = self.tmp / "stdin.txt"
+        in_f.write_bytes(input.encode("utf-8") if input is not None else b"")
+        with open(out_f, "wb") as out, open(err_f, "wb") as err, open(in_f, "rb") as inp:
             proc = subprocess.Popen([BASH, str(self.shim), *args], env=env or self.env(), stdout=out, stderr=err,
-                                    stdin=subprocess.DEVNULL, start_new_session=(os.name != "nt"))
+                                    stdin=inp, start_new_session=(os.name != "nt"))
             try:
                 proc.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
@@ -351,9 +354,13 @@ def test_hook_prompt_never_installs_and_exits_0_when_engine_missing(rig):
 
 
 def test_hook_prompt_exits_0_when_uv_missing(rig):
+    # With the engine installed, a missing uv alone keeps the launcher silent with exit 0.
+    # The launcher stops at the uv check, so the engine does not run (its log line is absent).
+    rig.install_engine(PIN)
     code, out, err = rig.run("hook", "prompt", env=rig.env(path_dirs=[rig.empty]))
     assert code == 0
     assert out == "" and err == ""
+    assert rig.calls() == []
 
 
 def test_hook_prompt_exits_0_when_engine_version_differs(rig):
@@ -364,10 +371,54 @@ def test_hook_prompt_exits_0_when_engine_version_differs(rig):
     assert out == "" and err == ""
 
 
-def test_hook_prompt_exits_0_when_uv_tool_dir_fails(rig):
+def test_hook_prompt_never_calls_uv(rig):
     code, out, err = rig.run("hook", "prompt", env=rig.env(FAKE_UV_DIR_FAIL="1"))
     assert code == 0 and out == "" and err == ""
-    assert rig.installs() == []
+    assert rig.calls() == []
+    rig.install_engine(PIN)
+    code, out, err = rig.run("hook", "prompt", env=rig.env(FAKE_UV_DIR_FAIL="1"))
+    assert code == 0 and out == "" and err == ""
+    assert rig.installs() == [] and "tool dir --bin" not in rig.calls()
+    assert rig.calls() == ["ENGINE [hook] [prompt]"]  # only the fake engine logged; uv was never called
+
+
+def test_hook_prompt_silent_when_engine_version_file_missing(rig):
+    (rig.shim.parent.parent / "engine-version.txt").unlink()
+    code, out, err = rig.run("hook", "prompt")
+    assert code == 0 and out == "" and err == ""
+    assert rig.calls() == []
+
+
+def test_hook_prompt_silent_when_home_unset(rig):
+    env = rig.env()
+    env.pop("HOME")
+    env.pop("COMPANIONS_ENGINE_BIN", None)
+    code, out, err = rig.run("hook", "prompt", env=env)
+    assert code == 0 and out == "" and err == ""
+
+
+def test_hook_prompt_passes_stdin_to_the_engine(rig):
+    rig.install_engine(PIN)
+    payload = '{"prompt": "hello", "session_id": "abc"}'
+    code, out, err = rig.run("hook", "prompt", input=payload)
+    assert code == 0 and out == "" and err == ""
+    assert (rig.tmp / "engine-stdin.txt").read_text(encoding="utf-8") == payload
+
+
+def test_hook_session_start_keeps_engine_json_when_engine_exits_nonzero(rig):
+    rig.install_engine(PIN)
+    script = chr(10).join([
+        "#!/bin/bash",
+        'here="${0%/*}"',
+        'if [ "${1:-}" = "version" ]; then echo "companions $(<"$here/fake-version")"; exit 0; fi',
+        "echo '{\"hookSpecificOutput\": {}}'",
+        "exit 1",
+        "",
+    ])
+    _write(rig.toolbin / "companions", script)
+    code, out, err = rig.run("hook", "session-start")
+    assert code == 0
+    assert out == '{"hookSpecificOutput": {}}' + chr(10)
 
 
 def test_hook_prompt_exits_0_when_reentered(rig):
