@@ -255,3 +255,25 @@ def test_suffix_matches_the_same_amount_written_out(env):
     assert "€2.5m" in render_brief(b, p)
     b, p = _with_quote(env, "Market", "a 1.2bn market", "A 1.2 billion euro market.")
     assert "1.2 billion" in render_brief(b, p)
+
+
+def _conflict(env):
+    store, _ = env  # c1 says 200 a month; a second price makes the conflict
+    _add(store, [{"type": "claim", "about": "m1", "key": "price", "statement": "Pays 500", "quote": "€500", "value": 500}])
+    b = bank_of(env)
+    return b, [i for i in b.records if b.records[i]["type"] == "claim" and b.claim_status(i) == "conflicted"]
+
+
+def test_a_beat_cannot_cite_a_conflicted_claim(env):
+    b, conflicted = _conflict(env)
+    assert "c1" in conflicted
+    errs = errors(b, plan(script=[{"line": "She pays €200 a month.", "cites": ["c1"]}]))
+    assert len(errs) == 1 and "beat 1" in errs[0] and "c1" in errs[0] and "conflict" in errs[0]
+
+
+def test_every_open_conflict_is_listed_even_if_the_plan_leaves_it_out(env):
+    b, conflicted = _conflict(env)
+    out = render_brief(b, plan(proof=[]))
+    tail = out.split("### Conflicts to settle")[1]
+    for c in conflicted:
+        assert b.records[c]["data"]["statement"] in tail

@@ -201,6 +201,10 @@ def render_brief(bank: Bank, plan: dict) -> str:
             errors.append(f"{where}: cites at least one moment or claim")
             cites = []
         recs = [r for c in cites if (r := _check_id(bank, c, ("moment", "claim"), f"{where} cites", errors))]
+        for r in recs:  # a conflict is the sprinter's to settle; a line built on one side picks it for them
+            if r["type"] == "claim" and bank.claim_status(r["id"]) == "conflicted":
+                errors.append(f"{where} cites: {r['id']} is in an open conflict; settle it with the sprinter first")
+        recs = [r for r in recs if not (r["type"] == "claim" and bank.claim_status(r["id"]) == "conflicted")]
         if line and len(recs) == len(cites) and cites:
             known = set().union(*(_record_numbers(r) for r in recs))
             for raw, value in dict.fromkeys(_find_numbers(line)):
@@ -250,7 +254,10 @@ def render_brief(bank: Bank, plan: dict) -> str:
     live = [c for c in dict.fromkeys(proof) if bank.claim_status(c) != "conflicted"]
     live.sort(key=lambda c: PROOF_ORDER.index(bank.claim_status(c)))
     out += ["", "## Proof", ""] + ([_proof_line(bank, c) for c in live] or ["- none"])
-    conflicted = [c for c in dict.fromkeys(proof) if bank.claim_status(c) == "conflicted"]
+    # Every open conflict is listed, in the plan's proof or not: conflicts are flagged, never hidden.
+    open_claims = [c for k in bank.conflicts.values() if k["open"] for c in k["claims"]
+                   if not bank.records[c]["retracted"]]
+    conflicted = [c for c in dict.fromkeys([*proof, *open_claims]) if bank.claim_status(c) == "conflicted"]
     if conflicted:
         out += ["", "### Conflicts to settle", ""] + [_proof_line(bank, c) for c in conflicted]
     if asks:
