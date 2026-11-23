@@ -237,7 +237,7 @@ The first lets Claude call a companion when you ask for one, the second runs the
 
 ## Model
 
-The companions run on whatever model your Claude Code uses. We expect Sonnet to be enough, because the engine does the exact work (keeping your words, counting sources, flagging conflicts, and checking every number in the draft script), and the model's job is to listen and ask one good question. That's a guess so far: we haven't yet compared Sonnet and Opus on the same scripted session.
+The companions run on whatever model your Claude Code uses. We recommend Sonnet. The engine does the exact work (keeping your words, counting sources, flagging conflicts, and checking every number in the draft script), and the model's job is to listen and ask one good question. On the same scripted session, Sonnet and Opus both quoted the sprinter word for word, refused to pad a thin draft script and made up no research; Sonnet cost about half as much and answered faster. Opus kept to one question at a time a little more closely. The details are in [`docs/verification.md`](docs/verification.md).
 
 ## How it's built
 
