@@ -130,8 +130,10 @@ def test_base_bans_shell_variables_and_powershell():
 
 def test_opt_in_is_never_re_asked_once_asked():
     first = _section(_read(REFS / "base.md"), "## First meeting")
-    assert "printed `unset` at catch-up" in first
-    assert "If it printed `asked`" in first and "never ask it again" in first
+    # Asked once: the session-start note asks in the conversation it opens; a companion in that
+    # same conversation covers for it, and no later conversation asks again.
+    assert "printed `unset` at catch-up, or printed `asked` and this conversation opened with" in first
+    assert "in an earlier conversation: never ask it again" in first
 
 
 def test_catch_up_is_gated_on_notes_being_on_and_notes_the_session_before_done():
