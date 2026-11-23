@@ -74,10 +74,10 @@ def test_long_opaque_strings_are_removed():
     ("curl -H 'Authorization: Basic dXNlcjpwYXNz' https://api.example.com",
      "curl -H 'Authorization: Basic [removed]' https://api.example.com"),
     ("send it with bearer 9f8e7d6c5b4a39281706", "send it with bearer [removed]"),
-    ("sk_live_" + "4eC39HqLyjWDarjtT1zdp7dc" + "AbCdEfGh", "[removed]"),
+    ("sk_live_" + "Fake0" * 4 + "Ab12", "[removed]"),  # 32 characters in all: under the 40-character catch-all
     ("STRIPE_KEY=sk_test_" + "a1B2c3D4" * 4, "STRIPE_KEY=[removed]"),
     ("rk_live_" + "Zx9" * 8, "[removed]"),
-    ("maps key AIza" + "SyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY" + " thanks", "maps key [removed] thanks"),
+    ("maps key AIza" + "Sy" + "Fake-0_9x" * 3 + "Fake-0" + " thanks", "maps key [removed] thanks"),
     ("AWS_ACCESS_KEY=abc123def", "AWS_ACCESS_KEY=[removed]"),
 ])
 def test_redacts_common_paste_shapes(raw, expected):
