@@ -20,10 +20,10 @@ _PATTERNS = [
 _URL_PASSWORD = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://[^\s:/@]*:)([^\s/@]+)(@)")
 # The credentials in an Authorization header, with or without a scheme word.
 _AUTH_HEADER = re.compile(r"(?i)(\bauthorization[\"']?\s*[:=]\s*[\"']?(?:(?:bearer|basic|token|digest)\s+)?)"
-                          r"([^\s\"']{6,})")
+                          r"([^\s\"']{5,}[^\s\"'.,;:)])")  # a full stop or comma after it stays
 # "bearer <token>" anywhere: the token must look like one (a digit in it, or 20 characters or more),
-# so "the bearer of bad news" and "bearer bonds" stay.
-_BEARER = re.compile(r"(?i)\b(bearer\s+)((?=[\w.~+/=-]*\d)[\w.~+/=-]{8,}|[\w.~+/=-]{20,})")
+# so "the bearer of bad news" and "bearer bonds" stay. A full stop right after it stays too.
+_BEARER = re.compile(r"(?i)\b(bearer\s+)((?=[\w.~+/=-]*\d)[\w.~+/=-]{7,}[\w~+/=-]|[\w.~+/=-]{19,}[\w~+/=-])")
 # key = value, keeping the key name and separator and replacing only the value. The key may sit
 # inside a larger identifier (DB_PASSWORD, dbPassword, STRIPE_SECRET_KEY) and be quoted, as in JSON.
 # A suffix must start with _ or -, so plain words like "tokens:" or "secretary:" are left alone. An
