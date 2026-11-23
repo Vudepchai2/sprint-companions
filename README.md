@@ -95,7 +95,7 @@ before the second?
 
 Most of your sprint happens while you're building, not while you're talking about the story. Quiet notes catch that, if you want them to.
 
-- **Asked once.** At a natural moment, a companion asks, in one line:
+- **Asked once.** At a natural moment in your first session, Claude asks, in one line:
 
   > Want the companions to keep up with your build sessions? They only keep what you type, on this machine. You can turn it off any time.
 
@@ -200,6 +200,16 @@ Do this yourself in a terminal. Never paste passwords or tokens into Claude.
 ```
 
 Choose to install it for you (user scope). If Claude Code says to reload plugins, type `/reload-plugins`, or start a new session.
+
+**Fewer permission prompts (recommended).** Claude Code asks before a companion runs its `companions` commands after its first reply, and before it saves to your memory folder. To say yes once for good, type `/permissions`, choose **Allow**, and add these three rules:
+
+```
+Skill(sprint-companions:*)
+Bash(companions *)
+Edit(~/SprintCompanions/**)
+```
+
+The first lets Claude call a companion when you ask for one, the second runs the companions engine, and the third lets the companions write to your memory folder and nowhere else. (If you set `COMPANIONS_HOME`, use that folder in the third rule.)
 
 **First run.** The first time it starts (in a new session, or at the first companion call), it installs the companions engine at the exact version this plugin pins, into a private folder (`~/.sprint-companions/engine-bin`), with a Python to run it. It happens once per engine version (an update that changes the pin installs the new one) and can take a few minutes. Then try `/tt`, or just ask "what's the boldest thing we could show on demo day?"
 
