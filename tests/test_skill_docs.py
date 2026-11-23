@@ -196,3 +196,104 @@ def test_no_real_names_check_folds_accents():
 def test_skill_docs_use_lf():
     for path in [*REFS.glob("*.md"), *(PLUGIN / "skills").glob("*/SKILL.md")]:
         assert b"\r\n" not in path.read_bytes(), path
+
+
+UTILITY = {
+    "memory": ("Use when the sprinter asks what the companions know or remember about them, wants to see, correct "
+               "or delete their memory, or wants to turn quiet notes on or off.",
+               "Bash(companions *), Read"),
+    "brief": ("Use when the sprinter wants to prepare for demo day or another pitch: a draft script, the story, "
+              "proof points, or who will be in the audience, or calls /brief.",
+              "Bash(companions *), Read, Write"),
+    "panel": ("Use when the sprinter asks what the other companions, everyone, or the panel thinks about a "
+              "question, or calls /panel.",
+              "Bash(companions *), Read, Agent"),
+}
+
+
+def _utility_body(name: str) -> str:
+    return _frontmatter(_read(PLUGIN / "skills" / name / "SKILL.md"))[1]
+
+
+@pytest.mark.parametrize("name", sorted(UTILITY))
+def test_utility_frontmatter(name):
+    fields, body = _frontmatter(_read(PLUGIN / "skills" / name / "SKILL.md"))
+    description, tools = UTILITY[name]
+    assert fields["name"] == name
+    assert fields["description"] == description
+    assert fields["allowed-tools"] == tools
+    assert "${CLAUDE_SKILL_DIR}/../../references/base.md" in body
+    assert "${CLAUDE_SKILL_DIR}/../../references/memory.md" in body
+    assert "coach" not in body.casefold()
+
+
+def test_memory_contract():
+    body = _utility_body("memory")
+    for needle in ("12 lines", "Your sprint so far", "companions memory brief", "companions memory gaps",
+                   "pages/", "companions memory forget", "companions memory delete", "companions notes off",
+                   "companions notes project"):
+        assert needle in body, needle
+
+
+def test_panel_contract():
+    body = _utility_body("panel")
+    for needle in ("2–4 lines", "Where they disagree:", "From your memory:",
+                   "Your call. Want to go deeper with one of them?", "companions memory brief",
+                   "Never decide."):
+        assert needle in body, needle
+    for code in CODES:
+        assert f"${{CLAUDE_SKILL_DIR}}/../{code}/persona.md" in body, code
+    takes = [body.index(f"`{code.upper()}`") for code in CODES]
+    assert takes == sorted(takes)
+
+
+def test_brief_contract():
+    body = _utility_body("brief")
+    for needle in ("companions memory demo-brief", '"occasion"', '"script"', '"cites"', '"proof"',
+                   '"before_stage"', "format", "150 words per minute", "brief-plan.json",
+                   "read it aloud and tell me which line felt wrong"):
+        assert needle in body, needle
+    assert "every number in a line must come from a cited record" in body.casefold()
+
+
+def test_brief_example_plan_runs_through_the_engine(tmp_path):
+    """The plan shape the brief skill shows is accepted, and an uncited number is rejected."""
+    body = _utility_body("brief")
+    plan_text = re.search(r"```json\n(.*?)\n```", body, re.S).group(1)
+    env = {**os.environ, "PYTHONPATH": str(ROOT / "engine"), "COMPANIONS_HOME": str(tmp_path)}
+
+    def cli(*args, input=None, ok=True):
+        r = subprocess.run([sys.executable, "-m", "companions", *args], capture_output=True, env=env,
+                           input=input)
+        assert (r.returncode == 0) == ok, r.stderr.decode("utf-8")
+        return r.stdout.decode("utf-8"), r.stderr.decode("utf-8")
+
+    bank = cli("bank", "--ensure", "--name", "Example")[0].strip()
+    batch = {
+        "source": {"kind": "said", "ref": "sessions/live1", "at": "2026-11-23", "by": "mm"},
+        "items": [
+            {"type": "moment", "ref": "@signed", "title": "First clinic signed",
+             "what_happened": "The first clinic signed up, at €200 a month.",
+             "quotes": ["first clinic signed, €200/month"]},
+            {"type": "claim", "about": "@signed", "key": "monthly_price",
+             "statement": "The first clinic pays €200 a month.", "value": 200, "unit": "EUR per month",
+             "quote": "first clinic signed, €200/month"},
+            {"type": "occasion", "name": "Demo day", "format": "3-minute pitch with slides, no Q&A",
+             "audience": "seed investors and corporates, they care about paying customers"},
+        ],
+    }
+    cli("memory", "retain", bank, "-", input=json.dumps(batch).encode("utf-8"))
+    plan = json.loads(plan_text)
+    plan_file = Path(bank) / "brief-plan.json"
+    plan_file.write_text(json.dumps(plan), encoding="utf-8")
+    out, _ = cli("memory", "demo-brief", bank, str(plan_file))
+    page = Path(out.strip())
+    assert page == Path(bank) / "pages" / f"brief-{plan['occasion']}.md"
+    assert ("Draft: in your words, from your memory. Change anything that doesn't sound like you."
+            in page.read_text(encoding="utf-8"))
+    page.unlink()
+    plan["script"][0]["line"] += " We have 40 clinics waiting."
+    plan_file.write_text(json.dumps(plan), encoding="utf-8")
+    _, err = cli("memory", "demo-brief", bank, str(plan_file), ok=False)
+    assert "beat 1: the number 40 is not in any record it cites" in err
+    assert not page.exists()
