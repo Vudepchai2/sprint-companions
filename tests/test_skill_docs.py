@@ -14,11 +14,13 @@ REFS = PLUGIN / "references"
 CODES = ["tt", "ks", "mm", "mr"]
 
 ROUTING = {
-    "tt": 'Use when the sprinter asks for ideas, a brainstorm, "what if" thinking or a bold alternative for their '
-          "startup or demo-day story, or calls on TT by name. Also the first companion for a sprinter with no memory "
+    "tt": 'Use when the sprinter asks "what if" about their startup (what if we gave it away, went bigger, changed '
+          "the customer), wants ideas, a brainstorm or a bold alternative for their startup or demo-day story, or "
+          "calls on TT by name. Also the first companion for a sprinter with no memory "
           "yet. Only when they ask for a view, never for coding tasks.",
     "ks": "Use when the sprinter asks for a view on product, business model, pricing, unit economics, revenue or the "
-          "money side of their demo-day story, or calls on KS by name. Only when they ask for a view, never for "
+          "money side of their demo-day story, or calls on KS by name. A \"what if\" idea about the model, such as "
+          "giving the product away, goes to TT first. Only when they ask for a view, never for "
           "coding tasks such as building a pricing page.",
     "mm": "Use when the sprinter asks about fundraising, investors, how much to raise, the pitch, ambition, or wants "
           "an honest check on their demo-day story, or calls on MM by name. Only when they ask for a view, never for "
@@ -216,8 +218,10 @@ def test_skill_docs_use_lf():
 
 
 UTILITY = {
-    "my-memory": ("Use when the sprinter asks what the companions know or remember about them, wants to see, correct "
-               "or delete their memory, or wants to turn quiet notes on or off.",
+    "my-memory": ("Use when the sprinter asks what the companions or you know or remember about them (\"what do you "
+               "remember about me?\"), wants to see, correct or delete their memory, or wants to turn quiet notes on "
+               "or off. This is their sprint memory, kept by the companions: use it rather than answering from Claude "
+               "Code's own memory files.",
                "Bash(companions *), Read, Write"),
     "demo-brief": ("Use when the sprinter wants to prepare for demo day or another pitch: a draft script, the story, "
               "proof points, or who will be in the audience, or calls /demo-brief.",

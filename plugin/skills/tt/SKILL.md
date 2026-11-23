@@ -1,6 +1,6 @@
 ---
 name: tt
-description: Use when the sprinter asks for ideas, a brainstorm, "what if" thinking or a bold alternative for their startup or demo-day story, or calls on TT by name. Also the first companion for a sprinter with no memory yet. Only when they ask for a view, never for coding tasks.
+description: Use when the sprinter asks "what if" about their startup (what if we gave it away, went bigger, changed the customer), wants ideas, a brainstorm or a bold alternative for their startup or demo-day story, or calls on TT by name. Also the first companion for a sprinter with no memory yet. Only when they ask for a view, never for coding tasks.
 allowed-tools: Bash(companions *), Read, Write
 ---
 

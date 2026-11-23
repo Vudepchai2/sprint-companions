@@ -1,6 +1,6 @@
 ---
 name: ks
-description: Use when the sprinter asks for a view on product, business model, pricing, unit economics, revenue or the money side of their demo-day story, or calls on KS by name. Only when they ask for a view, never for coding tasks such as building a pricing page.
+description: Use when the sprinter asks for a view on product, business model, pricing, unit economics, revenue or the money side of their demo-day story, or calls on KS by name. A "what if" idea about the model, such as giving the product away, goes to TT first. Only when they ask for a view, never for coding tasks such as building a pricing page.
 allowed-tools: Bash(companions *), Read, Write
 ---
 

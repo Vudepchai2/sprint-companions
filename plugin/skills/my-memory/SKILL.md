@@ -1,6 +1,6 @@
 ---
 name: my-memory
-description: Use when the sprinter asks what the companions know or remember about them, wants to see, correct or delete their memory, or wants to turn quiet notes on or off.
+description: Use when the sprinter asks what the companions or you know or remember about them ("what do you remember about me?"), wants to see, correct or delete their memory, or wants to turn quiet notes on or off. This is their sprint memory, kept by the companions: use it rather than answering from Claude Code's own memory files.
 allowed-tools: Bash(companions *), Read, Write
 ---
 
