@@ -5,6 +5,7 @@ Ids start with the UTC timestamp, so ordering and "digested through" are plain s
 import json
 import os
 import re
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -24,6 +25,35 @@ def _state_path() -> Path:
     return notes_dir() / "state.json"
 
 
+@contextmanager
+def _writer_lock(box: Path):
+    """Hold inbox/.lock while appending. The prompt hook runs the engine in the background, so two
+    engines can append at once, and on Windows an append is a seek and a write, not one step: without
+    the lock one note can land on top of another. Readers never take it."""
+    fd = os.open(box / ".lock", os.O_RDWR | os.O_CREAT | getattr(os, "O_BINARY", 0), 0o600)
+    try:
+        if os.name == "nt":
+            import msvcrt
+            for attempt in range(3):  # each LK_LOCK retries for about 10 s, then raises
+                try:
+                    msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+                    break
+                except OSError:
+                    if attempt == 2:
+                        raise
+            try:
+                yield
+            finally:
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield  # closing the file releases it
+    finally:
+        os.close(fd)
+
+
 def append(entry: dict, now: datetime | None = None) -> None:
     """Add one note to today's (UTC) inbox file. `now` is for tests."""
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
@@ -35,7 +65,7 @@ def append(entry: dict, now: datetime | None = None) -> None:
             "session": entry["session"], "cwd": entry["cwd"], "text": text}
     box = _inbox()
     box.mkdir(parents=True, exist_ok=True)
-    with (box / f"{now:%Y-%m-%d}.jsonl").open("a", encoding="utf-8", newline="\n") as f:
+    with _writer_lock(box), (box / f"{now:%Y-%m-%d}.jsonl").open("a", encoding="utf-8", newline="\n") as f:
         f.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 

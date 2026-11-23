@@ -122,7 +122,8 @@ def test_prune_deletes_old_and_fully_digested_but_never_today(home):
 
     inbox.done(today_id)
     assert inbox.prune(today) == 1
-    assert sorted(p.name for p in box.iterdir()) == ["2026-11-23.jsonl", "notes.txt"]
+    # .lock is the writers' lock (no notes in it); prune leaves it and anything else it didn't write
+    assert sorted(p.name for p in box.iterdir()) == [".lock", "2026-11-23.jsonl", "notes.txt"]
 
 
 def test_text_is_capped_at_4000_chars(home):
@@ -156,3 +157,28 @@ def test_read_skips_damaged_lines(home):
 
 def test_read_with_no_inbox_is_empty(home):
     assert inbox.read() == {"entries": [], "more": False, "through": None, "unknown_projects": []}
+
+
+def test_append_keeps_every_note_when_engines_write_at_once(tmp_path):
+    """The prompt hook runs the engine in the background, so two prompts' engines (or two Claude Code
+    sessions') can append at the same moment. On Windows an append is a seek to the end and a write,
+    not one step, so without a lock one note can overwrite the other."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+    code = ("import sys, time\n"
+            "from companions.notes import inbox\n"
+            "t = float(sys.argv[1])\n"
+            "while time.time() < t: pass\n"
+            "for i in range(20): inbox.append({'session': 's', 'cwd': '/w', 'text': sys.argv[2] + '-' + str(i)})\n")
+    env = {**os.environ, "COMPANIONS_HOME": str(tmp_path),
+           "PYTHONPATH": str(Path(__file__).resolve().parents[1])}
+    import time
+    start = time.time() + 3  # every process starts writing at the same moment
+    procs = [subprocess.Popen([sys.executable, "-c", code, str(start), f"w{n}"], env=env) for n in range(6)]
+    assert all(p.wait(timeout=60) == 0 for p in procs)
+    lines = [line for f in (tmp_path / "notes" / "inbox").glob("*.jsonl")
+             for line in f.read_text(encoding="utf-8").splitlines()]
+    texts = sorted(json.loads(line)["text"] for line in lines)
+    assert texts == sorted(f"w{n}-{i}" for n in range(6) for i in range(20))
