@@ -62,10 +62,10 @@ def test_long_opaque_strings_are_removed():
 
 # Shapes a sprinter building a product pastes all the time.
 @pytest.mark.parametrize("raw, expected", [
-    ("DATABASE_URL=postgres://admin:S3cretPass99@db.example.com:5432/app",
-     "DATABASE_URL=postgres://admin:[removed]@db.example.com:5432/app"),
-    ("mongodb+srv://vic:hunter2xyz@cluster0.abcde.mongodb.net/test",
-     "mongodb+srv://vic:[removed]@cluster0.abcde.mongodb.net/test"),
+    ("DATABASE_URL=postgres://admin:S3cretPass99@example.com:5432/app",
+     "DATABASE_URL=postgres://admin:[removed]@example.com:5432/app"),
+    ("mongodb+srv://founder:hunter2xyz@example.com/test",
+     "mongodb+srv://founder:[removed]@example.com/test"),
     ("redis://:p4ssw0rd@localhost:6379", "redis://:[removed]@localhost:6379"),
     ("Authorization: Bearer abcDEF123456ghiJKL7890", "Authorization: Bearer [removed]"),
     ("curl -H 'Authorization: Basic dXNlcjpwYXNz' https://api.example.com",
