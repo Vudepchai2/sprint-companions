@@ -6,7 +6,7 @@ The companions never decide for you, never score you, ask one question at a time
 
 **See it first:** [`docs/demo.html`](docs/demo.html) walks through five moments from a fictional sprinter's week. Download it and open it in a browser; GitHub shows only its source.
 
-[Quiet notes](#quiet-notes) · [After a customer call](#after-a-customer-call) · [/brief](#brief-draft-script) · [/panel](#panel) · [/memory](#memory) · [Install](#install) · [Privacy](#privacy) · [Limits](#limits) · [Model](#model)
+[Quiet notes](#quiet-notes) · [After a customer call](#after-a-customer-call) · [/demo-brief](#demo-brief-draft-script) · [/panel](#panel) · [/my-memory](#my-memory) · [Install](#install) · [Privacy](#privacy) · [Limits](#limits) · [Model](#model)
 
 ## The companions
 
@@ -99,14 +99,14 @@ Most of your sprint happens while you're building, not while you're talking abou
 
   > Want the companions to keep up with your build sessions? They only keep what you type, on this machine. You can turn it off any time.
 
-  Nothing is kept until you say yes. Say "stop keeping notes" at any time, or use `/memory`, to turn them off.
+  Nothing is kept until you say yes. Say "stop keeping notes" at any time, or use `/my-memory`, to turn them off.
 - **Only what you type.** A small hook adds each prompt you type to a local inbox on this machine, with the time and the project folder. It never keeps Claude's replies, tool output or code Claude writes. Anything you type or paste into a prompt is kept on this machine as you typed it, pasted code or error messages included, with anything that looks like a key, token or password removed first. No AI runs while you build. The hook is silent, and it never blocks or fails your prompt.
 - **Only your startup.** The first time the notes hold a folder the companions haven't seen, they ask once which folders are the startup:
 
   > Is `clinic-app` your startup? And `thesis-notes`?
 
   Notes from folders you say aren't the startup are never read.
-- **Caught up when you ask.** The next time you call a companion, `/memory` or `/brief`, it reads the inbox and keeps only the story material, in your words: customers, numbers, decisions, turning points, what shipped and when. "Fix the CSS" is dropped. It says so in one line, such as `(caught up on your last 4 build sessions)`. The first call after a long stretch is a little slower.
+- **Caught up when you ask.** The next time you call a companion, `/my-memory` or `/demo-brief`, it reads the inbox and keeps only the story material, in your words: customers, numbers, decisions, turning points, what shipped and when. "Fix the CSS" is dropped. It says so in one line, such as `(caught up on your last 4 build sessions)`. The first call after a long stretch is a little slower.
 - **Cleared after 30 days.** Whatever is left in the inbox is deleted after 30 days.
 
 To be honest about what this catches: most prompts are coding instructions, so the notes mostly yield what you shipped and when ("we shipped invoicing in 9 days"), plus the odd decision. The best material happens elsewhere.
@@ -121,9 +121,9 @@ Customer calls happen outside Claude Code, so quiet notes can't hear them. That'
 
 The companion keeps it in your words, and it's there for the next question, the panel and your demo-day script. If you'd rather talk than type, use your computer's own dictation (Win+H on Windows, Fn twice on a Mac).
 
-## /brief (draft script)
+## /demo-brief (draft script)
 
-`/brief` turns your memory into a demo-day brief you can practise from.
+`/demo-brief` turns your memory into a demo-day brief you can practise from.
 
 1. It asks for what's missing, one question per turn: the date, the format and length ("3-minute pitch with slides, no Q&A"), and who'll be in the room and what they care about, in your words.
 2. It writes a one-page brief to your memory's `pages/` folder, headed:
@@ -154,9 +154,9 @@ Your call. Want to go deeper with one of them?
 
 The panel shows where they disagree and the one or two things from your memory that matter most. It never settles on one answer. A panel question costs about four times a normal one, because each companion answers separately.
 
-## /memory
+## /my-memory
 
-All four companions share one memory of you. `/memory` shows it in the chat, in 12 lines or fewer:
+All four companions share one memory of you. `/my-memory` shows it in the chat, in 12 lines or fewer:
 
 - **Your sprint so far:** the moments, in date order.
 - **Said more than once,** and **conflicts.**
@@ -171,7 +171,7 @@ Every point shows where it came from (something you said, or a quiet note from a
 | `conflicted` | Two different numbers for the same thing. A companion asks you once how they fit, and never picks one for you. |
 | `confirmed` | You settled it. |
 
-The memory is yours. It's also written out as readable pages you can open in any editor. Through `/memory` you can correct anything, forget a record, delete everything, or turn quiet notes on or off.
+The memory is yours. It's also written out as readable pages you can open in any editor. Through `/my-memory` you can correct anything, forget a record, delete everything, or turn quiet notes on or off.
 
 ## Install
 
@@ -212,7 +212,7 @@ Choose to install it for you (user scope). If Claude Code says to reload plugins
 - **Claude still sees the conversation.** What you type, and the parts of your memory a companion reads to answer you, go to Claude like anything else in a Claude Code conversation.
 - **Quiet notes keep only your prompts**, only after you opt in, and only from folders you've confirmed as the startup. They never keep Claude's replies, tool output or code Claude writes. Anything you type or paste into a prompt is kept on this machine, with secrets removed. Only the story material from it goes into your memory, and anything left in the inbox is deleted after 30 days.
 - **The demo-day audience** is kept only the way you describe it ("seed investors and corporates, they care about paying customers"). The companions keep no records about named people in the audience and research nobody.
-- **It's yours.** The readable pages in your memory folder are yours to open. Correct, forget, delete everything, or turn quiet notes off, any time, through `/memory`.
+- **It's yours.** The readable pages in your memory folder are yours to open. Correct, forget, delete everything, or turn quiet notes off, any time, through `/my-memory`.
 
 ## Limits
 
@@ -231,7 +231,7 @@ The companions run on whatever model your Claude Code uses. We expect Sonnet to 
 
 ## How it's built
 
-- `plugin/`: the Claude Code plugin. The four companion skills (`skills/tt`, `ks`, `mm`, `mr`), each with a `persona.md` that holds its disclosure, outcome line, voice and sources; the `brief`, `panel` and `memory` skills; the shared rules in `references/`; the hooks for quiet notes; and the launcher, `bin/companions`.
+- `plugin/`: the Claude Code plugin. The four companion skills (`skills/tt`, `ks`, `mm`, `mr`), each with a `persona.md` that holds its disclosure, outcome line, voice and sources; the `demo-brief`, `panel` and `my-memory` skills; the shared rules in `references/`; the hooks for quiet notes; and the launcher, `bin/companions`.
 - `engine/`: the `companions` command, Python standard library only. It owns the memory bank, the quiet-notes inbox, the secret filter and the draft-script check.
 - `research/`: the public sources behind each persona.
 

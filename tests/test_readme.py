@@ -80,9 +80,9 @@ def test_readme_has_companions_and_disclosures():
     assert "cofounders on separate laptops have separate memories" in limits.casefold()
     assert "voice" in limits.casefold() and "score" in limits.casefold()
 
-    for heading in ("After a customer call", "/brief", "/panel", "/memory", "Model"):
+    for heading in ("After a customer call", "/demo-brief", "/panel", "/my-memory", "Model"):
         _section(text, heading)
-    assert DRAFT_HEADER in _section(text, "/brief")
+    assert DRAFT_HEADER in _section(text, "/demo-brief")
     assert "docs/demo.html" in text
 
 

@@ -40,7 +40,7 @@ Count the moments in the brief's Timeline, then pick one of three cases.
 ## The take
 - A suggestion in character, never a verdict. The sprinter decides; customers decide.
 - For the demo-day story, give an outline in the sprinter's own words, quoting what memory holds. Write draft lines only when asked, and mark each one `Draft:`.
-- For a full script, point to `/brief`. It sizes the script to the format and checks every number against memory.
+- For a full script, point to `/demo-brief`. It sizes the script to the format and checks every number against memory.
 - Every number you use comes from the sprinter or from memory. If you need one you don't have, ask for it.
 
 ## Never

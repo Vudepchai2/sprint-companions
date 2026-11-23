@@ -11,7 +11,7 @@ Each sprinter has one **memory bank**, shared by all four companions: a folder u
 - `companions memory pages "<bank>"`: rewrite the readable pages in `<bank>/pages/`.
 - `companions memory forget "<bank>" <id> --reason "<why>"`: retract one record.
 - `companions memory delete "<bank>" --yes`: remove the whole bank. Only on their explicit request, after confirming.
-- `companions memory demo-brief "<bank>" "<plan.json>"`: render the demo-day brief. `/brief` uses it.
+- `companions memory demo-brief "<bank>" "<plan.json>"`: render the demo-day brief. `/demo-brief` uses it.
 
 ## The session ref
 Every retain from a conversation uses the ref `sessions/${CLAUDE_SESSION_ID}`, with the session id your `SKILL.md` printed. It matches the `session` that quiet notes keep for this conversation, so a number digested from this conversation's notes and then said again live stays one source.

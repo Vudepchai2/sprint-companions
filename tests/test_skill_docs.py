@@ -216,11 +216,11 @@ def test_skill_docs_use_lf():
 
 
 UTILITY = {
-    "memory": ("Use when the sprinter asks what the companions know or remember about them, wants to see, correct "
+    "my-memory": ("Use when the sprinter asks what the companions know or remember about them, wants to see, correct "
                "or delete their memory, or wants to turn quiet notes on or off.",
                "Bash(companions *), Read, Write"),
-    "brief": ("Use when the sprinter wants to prepare for demo day or another pitch: a draft script, the story, "
-              "proof points, or who will be in the audience, or calls /brief.",
+    "demo-brief": ("Use when the sprinter wants to prepare for demo day or another pitch: a draft script, the story, "
+              "proof points, or who will be in the audience, or calls /demo-brief.",
               "Bash(companions *), Read, Write"),
     "panel": ("Use when the sprinter asks what the other companions, everyone, or the panel thinks about a "
               "question, or calls /panel.",
@@ -245,7 +245,7 @@ def test_utility_frontmatter(name):
 
 
 def test_memory_contract():
-    body = _utility_body("memory")
+    body = _utility_body("my-memory")
     for needle in ("12 lines", "Your sprint so far", "companions memory brief", "companions memory gaps",
                    "pages/", "companions memory forget", "companions memory delete", "companions notes off",
                    "companions notes project", "companions memory recall", "the same `about` and the same `key`"):
@@ -269,7 +269,7 @@ def test_panel_contract():
 
 
 def test_brief_contract():
-    body = _utility_body("brief")
+    body = _utility_body("demo-brief")
     for needle in ("companions memory demo-brief", '"occasion"', '"script"', '"cites"', '"proof"',
                    '"before_stage"', '"fields": {"format"', "150 words per minute", "brief-plan.json",
                    "Read it aloud and tell me which line felt wrong", "fewer than 3",
@@ -281,7 +281,7 @@ def test_brief_contract():
 
 def test_brief_example_plan_runs_through_the_engine(tmp_path):
     """The plan shape the brief skill shows is accepted, and an uncited number is rejected."""
-    body = _utility_body("brief")
+    body = _utility_body("demo-brief")
     plan_text = re.search(r"```json\n(.*?)\n```", body, re.S).group(1)
     env = {**os.environ, "PYTHONPATH": str(ROOT / "engine"), "COMPANIONS_HOME": str(tmp_path)}
 
@@ -327,10 +327,24 @@ def test_utility_skills_use_the_session_ref(name):
     assert "sessions/${CLAUDE_SESSION_ID}" in _utility_body(name)
 
 
-@pytest.mark.parametrize("name", ["memory", "brief"])
+@pytest.mark.parametrize("name", ["my-memory", "demo-brief"])
 def test_fallback_by_gives_the_disclosure_before_the_first_retain(name):
     body = _utility_body(name)
     fallback = body.index("or `mm` if none has spoken")
     disclosure = body.index("give the disclosure line from its persona file")
     assert fallback < disclosure < fallback + 600
     assert "${CLAUDE_SKILL_DIR}/../<code>/persona.md" in body
+
+
+# Claude Code's own slash commands win over a plugin skill of the same name: in Claude Code
+# 2.1.312, `/memory` and `/brief` answered "isn't available in this environment" and never
+# reached the plugin. Every skill needs a name of its own.
+BUILT_IN_COMMANDS = {"memory", "brief", "help", "clear", "compact", "config", "context", "cost", "doctor",
+                     "init", "login", "logout", "mcp", "model", "permissions", "plugin", "resume", "review",
+                     "status", "agents", "hooks", "export", "usage", "plan", "skills", "statusline"}
+
+
+def test_no_skill_shadows_a_claude_code_command():
+    names = {p.parent.name for p in (PLUGIN / "skills").glob("*/SKILL.md")}
+    assert names == {"tt", "ks", "mm", "mr", "panel", "my-memory", "demo-brief"}
+    assert not names & BUILT_IN_COMMANDS

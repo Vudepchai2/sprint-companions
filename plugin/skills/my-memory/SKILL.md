@@ -1,5 +1,5 @@
 ---
-name: memory
+name: my-memory
 description: Use when the sprinter asks what the companions know or remember about them, wants to see, correct or delete their memory, or wants to turn quiet notes on or off.
 allowed-tools: Bash(companions *), Read, Write
 ---

@@ -1,6 +1,6 @@
 ---
-name: brief
-description: Use when the sprinter wants to prepare for demo day or another pitch: a draft script, the story, proof points, or who will be in the audience, or calls /brief.
+name: demo-brief
+description: Use when the sprinter wants to prepare for demo day or another pitch: a draft script, the story, proof points, or who will be in the audience, or calls /demo-brief.
 allowed-tools: Bash(companions *), Read, Write
 ---
 
@@ -56,4 +56,4 @@ This drafts the sprinter's demo-day script from their own memory, for all four c
 16. Read the page. Show the draft script lines in order, then a summary in 10 lines or fewer: the format, the estimated length from the page, the proof with its status, any conflicts to settle, and the before-stage questions. Give the page's path.
 17. End with the offer to rehearse, as the turn's one question: "Want to rehearse? Read it aloud and tell me which line felt wrong". When they say which line, rework only that line with them, in their words, and run the plan again.
 
-Running `/brief` again after more sprint work rewrites the same page from the latest memory.
+Running `/demo-brief` again after more sprint work rewrites the same page from the latest memory.
