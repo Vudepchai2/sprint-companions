@@ -182,3 +182,23 @@ def test_append_keeps_every_note_when_engines_write_at_once(tmp_path):
              for line in f.read_text(encoding="utf-8").splitlines()]
     texts = sorted(json.loads(line)["text"] for line in lines)
     assert texts == sorted(f"w{n}-{i}" for n in range(6) for i in range(20))
+
+
+def test_a_held_lock_is_waited_for_a_bounded_time(home, monkeypatch):
+    """A stuck lock (a hung engine, a stuck filesystem) must not leave one blocked engine per prompt:
+    append gives up after LOCK_WAIT seconds, on every OS."""
+    import os
+    import time
+    import pytest
+    box = home / "notes" / "inbox"
+    box.mkdir(parents=True)
+    monkeypatch.setattr(inbox, "LOCK_WAIT", 0.5)
+    with inbox._writer_lock(box):  # held by "another engine"
+        start = time.monotonic()
+        with pytest.raises(OSError):
+            add("blocked")
+        took = time.monotonic() - start
+    assert 0.4 <= took < 3, took
+    add("after")  # free again
+    assert len(ids(home)) == 1
+    assert inbox.LOCK_WAIT == 0.5 and os.path.exists(box / ".lock")

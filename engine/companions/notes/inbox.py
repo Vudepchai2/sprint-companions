@@ -5,6 +5,7 @@ Ids start with the UTC timestamp, so ordering and "digested through" are plain s
 import json
 import os
 import re
+import time
 from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -27,31 +28,49 @@ def _state_path() -> Path:
     return notes_dir() / "state.json"
 
 
+LOCK_WAIT = 30.0  # seconds an append waits for the inbox lock before it gives up
+
+
 @contextmanager
 def _writer_lock(box: Path):
     """Hold inbox/.lock while appending. The prompt hook runs the engine in the background, so two
     engines can append at once, and on Windows an append is a seek and a write, not one step: without
-    the lock one note can land on top of another. Readers never take it."""
+    the lock one note can land on top of another. Readers never take it. The wait is bounded on every
+    OS, so a stuck lock can't pile up one blocked engine per prompt; past it, OSError is raised and
+    that one note is lost."""
     fd = os.open(box / ".lock", os.O_RDWR | os.O_CREAT | getattr(os, "O_BINARY", 0), 0o600)
     try:
         if os.name == "nt":
             import msvcrt
-            for attempt in range(3):  # each LK_LOCK retries for about 10 s, then raises
-                try:
-                    msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
-                    break
-                except OSError:
-                    if attempt == 2:
-                        raise
-            try:
-                yield
-            finally:
+
+            def try_lock():
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+
+            def unlock():
                 os.lseek(fd, 0, os.SEEK_SET)
                 msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
         else:
             import fcntl
-            fcntl.flock(fd, fcntl.LOCK_EX)
-            yield  # closing the file releases it
+
+            def try_lock():
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+            def unlock():
+                fcntl.flock(fd, fcntl.LOCK_UN)
+        deadline = time.monotonic() + LOCK_WAIT
+        while True:
+            try:
+                try_lock()
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.02)
+        try:
+            yield
+        finally:
+            unlock()
     finally:
         os.close(fd)
 
