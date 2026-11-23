@@ -67,12 +67,7 @@ if [ "${1:-}" = "version" ]; then
 fi
 if [ "${1:-}" = "hook" ] && [ "${2:-}" = "prompt" ]; then
   if [ -n "${FAKE_ENGINE_SLEEP:-}" ]; then sleep "$FAKE_ENGINE_SLEEP"; fi
-  if [ "${3:-}" = "--payload" ]; then  # like the real engine: read the payload file, then delete it
-    if [ -n "${STDIN_LOG:-}" ]; then cat "$4" > "$STDIN_LOG"; fi
-    if [ -n "${PAYLOAD_SEEN:-}" ]; then printf '%s\n' "$4" >> "$PAYLOAD_SEEN"; fi
-    if [ -z "${FAKE_ENGINE_KEEP:-}" ]; then rm -f "$4"; fi
-    set -- hook prompt --payload FILE  # a stable log line
-  elif [ -n "${STDIN_LOG:-}" ]; then cat > "$STDIN_LOG"; fi
+  if [ -n "${STDIN_LOG:-}" ]; then cat > "$STDIN_LOG"; else cat > /dev/null; fi  # like the real engine
 fi
 out="ENGINE"
 for a in "$@"; do out="$out [$a]"; done
@@ -80,8 +75,8 @@ printf '%s\n' "$out"
 printf '%s\n' "$out" >> "$UV_LOG"
 """
 
-# What the fake engine logs for one prompt: the launcher starts it in the background with the payload file.
-PROMPT_CALL = "ENGINE [hook] [prompt] [--payload] [FILE]"
+# What the fake engine logs for one prompt: the launcher starts it in the background, reading the hook's stdin.
+PROMPT_CALL = "ENGINE [hook] [prompt]"
 
 OLD_ENGINE = "#!/bin/bash\necho 'companions 0.0.9'\necho OLD-ENGINE-RAN\n"
 
@@ -106,7 +101,6 @@ class Rig:
         self.toolbin = self.home / ".sprint-companions" / "engine-bin"  # the shim's default private bin
         self.local_bin = self.home / ".local" / "bin"  # where uv puts tools by default; on PATH
         self.data = tmp / "data"  # COMPANIONS_HOME: quiet notes are on unless a test says otherwise
-        self.pending = self.data / "notes" / "pending"  # where the prompt path leaves the payload for the engine
         self.log = tmp / "uv.log"
         self.env_log = tmp / "uv-env.log"
         for d in (self.fakebin, self.empty, self.home, self.data):
@@ -169,14 +163,23 @@ class Rig:
         read = lambda f: f.read_bytes().decode("utf-8").replace("\r\n", "\n")  # noqa: E731
         return proc.returncode, read(out_f), read(err_f)
 
-    def wait_for_engine(self, timeout=10.0) -> None:
-        """The prompt path starts the engine in the background. Once the launcher has made the pending
-        folder it has started one, so wait for its log line; otherwise it started none."""
-        if not self.pending.is_dir():
-            return
+    def wait_for_engine(self, timeout: float | None = None) -> None:
+        """The prompt path starts the engine in the background and returns at once, so wait for the
+        engine's log line: up to 10 s when one is due (stamp at the pin, notes on), and otherwise 1.5 s,
+        long enough for a wrongly started fake engine to show up."""
+        if timeout is None:
+            timeout = 10.0 if self.engine_due() else 1.5
         end = time.monotonic() + timeout
         while not self.calls() and time.monotonic() < end:
             time.sleep(0.05)
+
+    def engine_due(self) -> bool:
+        stamp = self.toolbin / ".engine-pin"
+        try:
+            on = json.loads((self.data / "settings.json").read_text(encoding="utf-8")).get("quiet_notes") == "on"
+        except (OSError, ValueError, AttributeError):
+            on = False
+        return on and stamp.is_file() and stamp.read_text(encoding="utf-8").strip() == PIN
 
     def calls(self) -> list[str]:
         return self.log.read_text(encoding="utf-8").splitlines()
@@ -559,9 +562,8 @@ def test_hook_prompt_finds_settings_in_the_default_data_folder(rig):
     env = rig.env()
     env.pop("COMPANIONS_HOME")
     env["USERPROFILE"] = str(rig.home)  # Python's Path.home() on Windows
-    assert rig.run("hook", "prompt", env=env)[0] == 0
-    rig.pending = rig.home / "SprintCompanions" / "notes" / "pending"  # the payload went to the default folder
-    rig.wait_for_engine()
+    assert rig.run("hook", "prompt", env=env, wait_engine=False)[0] == 0
+    rig.wait_for_engine(timeout=10)
     assert rig.calls() == [PROMPT_CALL]
 
 
@@ -580,14 +582,20 @@ def test_a_matching_engine_gets_its_stamp_back(rig):
     assert (rig.toolbin / ".engine-pin").read_text(encoding="utf-8").strip() == PIN
 
 
-# The prompt path hands the payload to a background engine through a private file under the data
-# folder, so the sprinter waits for bash, never for a Python start.
+# The prompt path hands the payload to a background engine on the hook's own stdin, so the sprinter
+# waits for bash, never for a Python start, and the raw prompt never touches disk before the secret
+# filter has run.
+
+def _tree(folder: Path) -> list[str]:
+    return sorted(str(p.relative_to(folder)) for p in folder.rglob("*")) if folder.exists() else []
+
 
 def test_hook_prompt_returns_before_the_engine_finishes(rig):
     rig.install_engine(PIN)
     # Pipes, as Claude Code reads a hook: a background engine holding them would block the return.
+    payload = b'{"prompt": "hi"}'
     start = time.monotonic()
-    r = subprocess.run([BASH, str(rig.shim), "hook", "prompt"], input=b'{"prompt": "hi"}', capture_output=True,
+    r = subprocess.run([BASH, str(rig.shim), "hook", "prompt"], input=payload, capture_output=True,
                        env=rig.env(FAKE_ENGINE_SLEEP="5"), timeout=30)
     took = time.monotonic() - start
     assert r.returncode == 0 and r.stdout == b"" and r.stderr == b""
@@ -595,46 +603,46 @@ def test_hook_prompt_returns_before_the_engine_finishes(rig):
     assert rig.calls() == []  # still asleep
     rig.wait_for_engine(timeout=15)
     assert rig.calls() == [PROMPT_CALL]
+    assert (rig.tmp / "engine-stdin.txt").read_bytes() == payload  # it read the hook's stdin after the hook returned
 
 
-def test_hook_prompt_hands_the_payload_to_the_engine_in_a_pending_file(rig):
+def test_hook_prompt_reads_its_whole_stdin_before_it_returns(rig):
+    """Claude Code drops whatever it hasn't written to a hook's stdin once the hook exits, and a pipe holds
+    only about 64 KB. So the launcher takes the whole payload before it returns, even while the engine
+    hasn't started reading yet; otherwise a long paste reaches the engine cut short and its note is lost."""
+    import threading
     rig.install_engine(PIN)
+    payload = json.dumps({"prompt": "a long paste " + "y" * 300_000}).encode("utf-8")
+    proc = subprocess.Popen([BASH, str(rig.shim), "hook", "prompt"], stdin=subprocess.PIPE,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=rig.env(FAKE_ENGINE_SLEEP="5"))
+    written = threading.Event()
+
+    def feed():
+        try:
+            proc.stdin.write(payload)
+            proc.stdin.close()
+            written.set()
+        except OSError:
+            pass
+
+    threading.Thread(target=feed, daemon=True).start()
+    assert proc.wait(timeout=30) == 0
+    assert written.wait(1), "the hook returned before it had read all of its stdin"
+    rig.wait_for_engine(timeout=20)
+    assert rig.calls() == [PROMPT_CALL]
+    assert (rig.tmp / "engine-stdin.txt").read_bytes() == payload
+
+
+def test_hook_prompt_hands_the_payload_to_the_engine_on_stdin_and_writes_nothing(rig):
+    rig.install_engine(PIN)
+    before = _tree(rig.data)
     payload = json.dumps({"prompt": "first clinic signed, €200/month " + "x" * 50000, "session_id": "abc"},
                          ensure_ascii=False)
-    seen = rig.tmp / "payload-seen.txt"
-    code, out, err = rig.run("hook", "prompt", input=payload, env=rig.env(PAYLOAD_SEEN=str(seen)))
+    code, out, err = rig.run("hook", "prompt", input=payload)
     assert code == 0 and out == "" and err == ""
+    assert rig.calls() == [PROMPT_CALL]
     assert (rig.tmp / "engine-stdin.txt").read_bytes() == payload.encode("utf-8")  # byte for byte
-    (path,) = seen.read_text(encoding="utf-8").split()
-    assert _same(Path(path).parent, rig.pending)
-    assert list(rig.pending.iterdir()) == []  # the engine took it
-
-
-def test_hook_prompt_gives_each_prompt_its_own_payload_file(rig):
-    rig.install_engine(PIN)
-    seen = rig.tmp / "payload-seen.txt"
-    for i in range(3):
-        rig.log.write_text("", encoding="utf-8")
-        assert rig.run("hook", "prompt", input=f'{{"prompt": "p{i}"}}', env=rig.env(PAYLOAD_SEEN=str(seen)))[0] == 0
-    assert len(set(seen.read_text(encoding="utf-8").split())) == 3
-
-
-@pytest.mark.skipif(os.name == "nt", reason="POSIX modes; on Windows the data folder's ACL applies")
-def test_hook_prompt_payload_file_is_private(rig):
-    rig.install_engine(PIN)
-    assert rig.run("hook", "prompt", input='{"prompt": "hi"}', env=rig.env(FAKE_ENGINE_KEEP="1"))[0] == 0
-    (f,) = rig.pending.iterdir()
-    assert (rig.pending.stat().st_mode & 0o777) == 0o700
-    assert (f.stat().st_mode & 0o777) == 0o600
-
-
-def test_hook_prompt_is_silent_and_exits_0_when_the_payload_cant_be_written(rig):
-    rig.install_engine(PIN)
-    (rig.data / "notes").write_text("a file where the notes folder should be", encoding="utf-8")
-    code, out, err = rig.run("hook", "prompt", input='{"prompt": "hi"}')
-    assert code == 0 and out == "" and err == ""
-    time.sleep(1)
-    assert rig.calls() == []
+    assert _tree(rig.data) == before  # the launcher keeps no copy of the prompt anywhere
 
 
 def test_hook_prompt_is_silent_and_exits_0_when_the_engine_cant_start(rig):
@@ -646,19 +654,15 @@ def test_hook_prompt_is_silent_and_exits_0_when_the_engine_cant_start(rig):
 
 
 def test_hook_prompt_with_the_real_engine_keeps_the_note_and_no_raw_copy(rig):
-    """End to end: the real engine, started in the background, keeps the note with the secret removed,
-    deletes the payload file, and sweeps a stale one an earlier engine left behind."""
+    """End to end: the real engine, started in the background, reads the hook's stdin and keeps the note
+    with the secret removed. The raw key is in no file under the data folder."""
     py = Path(sys.executable).as_posix()
     engine_dir = (ROOT.parent / "engine").as_posix()
     rig.install_engine(PIN)
     _write(rig.toolbin / "companions", f'#!/bin/bash\nPYTHONPATH="{engine_dir}" "{py}" -m companions "$@"\n'
                                        'echo REAL-ENGINE-DONE >> "$UV_LOG"\n')
-    rig.pending.mkdir(parents=True)
-    stale = rig.pending / "old.json"
-    stale.write_text('{"prompt": "left behind"}', encoding="utf-8")
-    old = time.time() - 600
-    os.utime(stale, (old, old))
-    payload = json.dumps({"prompt": "use this key: sk-" + "x" * 30, "cwd": "/w/clinic-app", "session_id": "abc"})
+    key = "sk-" + "x" * 30
+    payload = json.dumps({"prompt": f"use this key: {key}", "cwd": "/w/clinic-app", "session_id": "abc"})
     code, out, err = rig.run("hook", "prompt", input=payload, wait_engine=False)
     assert code == 0 and out == "" and err == ""
     end = time.monotonic() + 30
@@ -667,4 +671,5 @@ def test_hook_prompt_with_the_real_engine_keeps_the_note_and_no_raw_copy(rig):
     notes = [json.loads(line) for f in sorted((rig.data / "notes" / "inbox").glob("*.jsonl"))
              for line in f.read_text(encoding="utf-8").splitlines()]
     assert [n["text"] for n in notes] == ["use this key: [removed]"]
-    assert list(rig.pending.iterdir()) == []  # its own file and the stale one are both gone
+    for f in rig.data.rglob("*"):
+        assert not f.is_file() or key.encode() not in f.read_bytes(), f

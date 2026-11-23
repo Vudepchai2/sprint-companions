@@ -16,9 +16,9 @@
 #   prompt), whatever goes wrong. It starts the engine only when the stamp file ($BIN/.engine-pin,
 #   written here after an install or a version check) matches the pin and settings.json has quiet
 #   notes on; otherwise it does nothing, without starting Python. When it does start the engine,
-#   it saves the hook payload to a private file in <data folder>/notes/pending and starts the
-#   engine in the background with --payload, then returns at once. The engine deletes that file as
-#   soon as it has read it, and sweeps any it finds older than five minutes.
+#   it reads the hook payload into memory, pipes it to the engine started in the background and
+#   returns at once. The payload (the raw prompt) is never written to disk; the engine removes
+#   secrets before it writes the note.
 #   `hook session-start` takes the normal install path, but every failure exits 0 and every
 #   launcher message goes to stderr; only the engine's own stdout is the hook output.
 #
@@ -154,7 +154,7 @@ fi
 # reads it instead of starting the engine to ask its version.
 STAMP="$BIN/.engine-pin"
 
-notes_on() { # is quiet_notes "on" in settings.json? Pure bash: no process starts. Sets DATA_HOME.
+notes_on() { # is quiet_notes "on" in settings.json? Pure bash: no process starts.
   local home settings
   if [ -n "${COMPANIONS_HOME:-}" ]; then
     home="$COMPANIONS_HOME"
@@ -163,7 +163,6 @@ notes_on() { # is quiet_notes "on" in settings.json? Pure bash: no process start
   else
     home="${HOME:-/nonexistent}/SprintCompanions"
   fi
-  DATA_HOME="$home"
   [ -f "$home/settings.json" ] || return 1
   settings="$(<"$home/settings.json")" || return 1
   [[ $settings =~ \"quiet_notes\"[[:space:]]*:[[:space:]]*\"on\" ]]
@@ -180,20 +179,18 @@ if [ "$MODE" = "prompt" ]; then
     exit 0 # never install on the prompt path
   fi
   unset COMPANIONS_SHIM_ACTIVE
-  # The engine runs in the background, so the sprinter never waits for it. Its payload (the raw
-  # prompt) goes through a file only this user can read, under the data folder; the engine deletes
-  # it once read. `cat`, not bash's `read`: `read` takes a pipe one byte at a time (seconds for a
-  # long paste). Any failure here ends in the EXIT trap: exit 0, nothing printed.
-  umask 077
-  pending="$DATA_HOME/notes/pending"
-  [ -d "$pending" ] || mkdir -p "$pending"
-  set -o noclobber # never write into a file that's already there
-  payload_file="$pending/$$-$RANDOM$RANDOM.json"
-  cat >"$payload_file"
-  # The outer guard: stdout becomes prompt context and exit 2 blocks the prompt, so the engine's
-  # output and exit code are both thrown away. Its stdin is not the hook's: nothing holds the
-  # hook's pipes open after this script exits.
-  "$ENGINE" hook prompt --payload "$payload_file" </dev/null >/dev/null 2>&1 &
+  # The engine runs in the background, so the sprinter never waits for it. The payload (the raw
+  # prompt) never touches disk: the launcher reads it into memory and pipes it to the engine, which
+  # removes secrets before it writes anything. It is read here, in full, before the hook returns,
+  # because Claude Code drops whatever it hasn't yet written to a hook's stdin once the hook exits,
+  # and a pipe holds only about 64 KB: a long paste handed straight on would reach the engine cut
+  # short. `cat`, not bash's `read`, which takes a pipe one byte at a time (seconds for a long
+  # paste), and not `$(</dev/stdin)`, which Git Bash can't open on a Windows pipe. The engine's
+  # stdout and stderr go to /dev/null, so nothing holds the hook's output pipes open after this
+  # script exits, and its exit code is thrown away (stdout would become prompt context and exit 2
+  # would block the prompt).
+  payload="$(cat)" || exit 0
+  printf '%s' "$payload" | "$ENGINE" hook prompt >/dev/null 2>&1 &
   exit 0
 fi
 
