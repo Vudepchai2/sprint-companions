@@ -216,3 +216,42 @@ def test_comma_only_joins_thousands_groups(env):
     b, p = _with_quote(env, "Count", "it was 23 times", "2,3 times")
     errs = errors(b, p)
     assert len(errs) == 2 and "number 2 " in errs[0] and "number 3 " in errs[1]
+
+
+# A magnitude suffix (k, m, mn, bn, b) glued to a number, or one space after it, multiplies it, in the
+# line and in the record alike: "€200k ARR" is not "€200/month".
+@pytest.mark.parametrize("text, value", [
+    ("we raised 50k", 50_000), ("we raised 50K", 50_000), ("we raised 50 k", 50_000),
+    ("we raised 50M", 50_000_000), ("EUR 2.5m ARR", 2_500_000), ("a 1.2bn market", 1_200_000_000),
+    ("a 3b market", 3_000_000_000), ("€4mn seed", 4_000_000), ("2,500,000 euros", 2_500_000),
+    ("a 1.2 billion market", 1_200_000_000), ("50 thousand users", 50_000),
+])
+def test_magnitude_suffixes(text, value):
+    from companions.memory.stage import _numbers
+    assert _numbers(text) == {float(value)}
+
+
+@pytest.mark.parametrize("text, values", [
+    ("we sold 5 b2b deals", {5.0, 2.0}),  # "b" in b2b is not billions
+    ("5 km away", {5.0}), ("10 mins", {10.0}), ("50  k", {50.0}),  # a word, or two spaces, is no suffix
+])
+def test_not_a_magnitude_suffix(text, values):
+    from companions.memory.stage import _numbers
+    assert _numbers(text) == values
+
+
+def test_suffix_changes_the_number(env):
+    b = bank_of(env)  # c1's quote is "€200/month", its value 200
+    errs = errors(b, plan(script=[{"line": "We're at €200k ARR.", "cites": ["c1"]}]))
+    assert len(errs) == 1 and "200k" in errs[0]
+    b, p = _with_quote(env, "Raised", "we raised 50k", "We raised 50M.")
+    assert "50m" in errors(b, p)[0].lower()
+
+
+def test_suffix_matches_the_same_amount_written_out(env):
+    b, p = _with_quote(env, "Raised", "we raised 50k", "We raised 50,000 euros.")
+    assert "50,000" in render_brief(b, p)
+    b, p = _with_quote(env, "Raised", "we raised 2,500,000", "We raised €2.5m.")
+    assert "€2.5m" in render_brief(b, p)
+    b, p = _with_quote(env, "Market", "a 1.2bn market", "A 1.2 billion euro market.")
+    assert "1.2 billion" in render_brief(b, p)

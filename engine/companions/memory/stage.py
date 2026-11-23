@@ -35,13 +35,18 @@ _UNITS = {w: i for i, w in enumerate(
     "fifteen sixteen seventeen eighteen nineteen".split())}
 _TENS = {w: 10 * i for i, w in enumerate(
     "_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()) if w != "_"}
-_SCALES = {"hundred": 100, "thousand": 1000, "million": 1_000_000}
+_SCALES = {"hundred": 100, "thousand": 1000, "million": 1_000_000, "billion": 1_000_000_000}
 _TOKEN = re.compile(r"\d{1,3}(?:,\d{3})+(?!\d)(?:\.\d+)?|\d+(?:\.\d+)?|[a-z]+")
+# A magnitude suffix glued to a number or one space after it: 50k, 2.5m, 1.2bn, 3 b. The number must
+# start a word and the suffix end it, so "b2b" and "km" are not suffixes.
+_SUFFIXES = {"k": 1_000, "m": 1_000_000, "mn": 1_000_000, "b": 1_000_000_000, "bn": 1_000_000_000}
 
 
 def _find_numbers(text: str) -> list[tuple[str, float]]:
     """Every number in the text, as (the words as written, its value): digits and number words."""
-    toks = _TOKEN.findall(text.lower())
+    low = text.lower()
+    matches = list(_TOKEN.finditer(low))
+    toks = [m.group(0) for m in matches]
     found: list[tuple[str, float]] = []
     total = cur = 0.0
     run: list[str] = []
@@ -50,15 +55,34 @@ def _find_numbers(text: str) -> list[tuple[str, float]]:
     def flush():
         nonlocal total, cur, run, last
         if run:
-            found.append((" ".join(run), total + cur))
+            found.append((" ".join(run), round(total + cur, 6)))  # 1.2 x 1e9 is 1.2e9, as written
         total = cur = 0.0
         run, last = [], ""
 
+    def suffix(i: int) -> float | None:
+        """The multiplier if token i+1 is a magnitude suffix on the number at token i."""
+        if i + 1 >= len(toks) or toks[i + 1] not in _SUFFIXES:
+            return None
+        here, nxt_m = matches[i], matches[i + 1]
+        before, after = low[here.start() - 1:here.start()] if here.start() else "", low[nxt_m.end():nxt_m.end() + 1]
+        if (low[here.end():nxt_m.start()] not in ("", " ") or (after and after.isalnum())
+                or (before and before.isalpha())):
+            return None
+        return _SUFFIXES[toks[i + 1]]
+
+    skip = -1
     for i, t in enumerate(toks):
+        if i == skip:
+            continue
         nxt = toks[i + 1] if i + 1 < len(toks) else ""
         if t[0].isdigit():
             flush()
             cur, run, last = float(t.replace(",", "")), [t], "digit"
+            mult = suffix(i)
+            if mult is not None:
+                gap = low[matches[i].end():matches[i + 1].start()]
+                cur, run, skip = cur * mult, [t + gap + nxt], i + 1
+                flush()
         elif t in _UNITS:
             if last == "tens" and _UNITS[t] < 10 and _UNITS[t] > 0 or last in ("scale", "and"):
                 cur += _UNITS[t]
@@ -116,7 +140,7 @@ def _record_numbers(rec: dict) -> set[float]:
         nums |= _numbers(str(q))
     v = d.get("value")
     if isinstance(v, (int, float)) and not isinstance(v, bool):
-        nums.add(float(v))
+        nums.add(round(float(v), 6))
     elif isinstance(v, str):
         nums |= _numbers(v)
     return nums
