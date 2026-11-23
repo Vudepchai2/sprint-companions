@@ -146,3 +146,27 @@ def test_page_failure_after_retain_is_a_warning_and_the_report_prints(tmp_path):
     assert json.loads(r.stdout)["added"][0]["id"] == "m1"
     assert "pages were not updated" in r.stderr
     assert len(_log_lines(bank)) == 1
+
+
+def test_retain_consumes_the_bank_batch_file(tmp_path):
+    # Companions write each batch to <bank>/batch.json with Claude Code's Write tool, which won't
+    # overwrite a file it hasn't read. The engine removes that one file once it has read it,
+    # accepted or rejected, so the next batch is always a fresh file.
+    bank = _bank(tmp_path)
+    good = _batch(bank, [MOMENT])
+    r = run("memory", "retain", bank, good)
+    assert r.returncode == 0, r.stderr
+    assert not good.exists()
+    bad = _batch(bank, [{"type": "bogus"}])
+    assert run("memory", "retain", bank, bad).returncode == 1
+    assert not bad.exists()
+
+
+def test_retain_keeps_any_other_batch_file(tmp_path):
+    bank = _bank(tmp_path)
+    elsewhere = _batch(tmp_path, [MOMENT])
+    assert run("memory", "retain", bank, elsewhere).returncode == 0
+    assert elsewhere.exists()
+    other_name = _batch(bank, [MOMENT], name="mine.json")
+    assert run("memory", "retain", bank, other_name).returncode == 0
+    assert other_name.exists()

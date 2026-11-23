@@ -65,13 +65,33 @@ def cmd_init(a):
     print(create_bank(Path(a.root), a.name))
 
 
+BATCH_FILE = "batch.json"
+
+
+def _is_bank_batch(path: Path, bank: Path) -> bool:
+    """The one file companions write a batch to: <bank>/batch.json."""
+    try:
+        return path.name == BATCH_FILE and path.resolve().parent == bank.resolve()
+    except OSError:
+        return False
+
+
 def cmd_retain(a):
     store, _ = _open(a.bank)
     from_stdin = a.batch == "-"
     try:
         # stdin is read as bytes, so a batch is UTF-8 whatever the console's code page
-        raw = (sys.stdin.buffer.read().decode("utf-8-sig") if from_stdin
-               else Path(a.batch).read_text(encoding="utf-8-sig"))
+        if from_stdin:
+            raw = sys.stdin.buffer.read().decode("utf-8-sig")
+        else:
+            path = Path(a.batch)
+            try:
+                raw = path.read_text(encoding="utf-8-sig")
+            finally:
+                # <bank>/batch.json is consumed, accepted or not: Claude Code's Write tool won't
+                # overwrite a file it hasn't read, so the next batch must find no file there.
+                if _is_bank_batch(path, Path(a.bank)):
+                    path.unlink(missing_ok=True)
         batch = json.loads(raw)
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         _fail(f"{'stdin batch' if from_stdin else 'batch file'} is not valid JSON: {e}")
