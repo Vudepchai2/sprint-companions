@@ -361,3 +361,18 @@ def test_no_skill_shadows_a_claude_code_command():
     names = {p.parent.name for p in (PLUGIN / "skills").glob("*/SKILL.md")}
     assert names == {"tt", "ks", "mm", "mr", "panel", "my-memory", "demo-brief"}
     assert not names & BUILT_IN_COMMANDS
+
+
+def test_wide_recalls_are_compact_and_met_comes_from_the_brief():
+    """A JSON recall of every record overflows one Bash output (about 30,000 characters) at a modest
+    bank size, so every wide read is --compact, and "have we met?" is the brief's ## Met line."""
+    docs = [REFS / "base.md", REFS / "memory.md", *sorted((PLUGIN / "skills").glob("*/SKILL.md"))]
+    for path in docs:
+        for line in _read(path).splitlines():
+            for m in re.finditer(r"companions memory recall [^`]*--limit (\d+)[^`]*", line):
+                if int(m.group(1)) > 50:
+                    assert "--compact" in m.group(0), (path.name, m.group(0))
+    first = _section(_read(REFS / "base.md"), "## First meeting")
+    assert "`## Met`" in first and "recall" not in first.split("2. ")[0]
+    for name in ("my-memory", "demo-brief"):
+        assert "`## Met` line of the brief" in _read(PLUGIN / "skills" / name / "SKILL.md"), name

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import create_bank, open_bank
-from .recall import brief, gaps, recall
+from .recall import brief, compact, gaps, recall
 from .retain import BatchError, retain
 from .pages import write_pages
 from .sources import import_source
@@ -119,6 +119,11 @@ def cmd_brief(a):
 
 def cmd_recall(a):
     _, bank = _open(a.bank)
+    if a.compact:  # one line per record: a whole sprint fits in one output
+        every = recall(bank, query=a.query, about=a.about, entity=a.entity, type=a.type,
+                       since=a.since, limit=len(bank.records) + 1)
+        print(compact(bank, every[:max(a.limit, 0)], total=len(every)))
+        return
     out = recall(bank, query=a.query, about=a.about, entity=a.entity, type=a.type,
                  since=a.since, limit=a.limit)
     print(json.dumps(out, ensure_ascii=False, indent=2))
@@ -196,7 +201,8 @@ def register(sub) -> None:
     add("import", cmd_import, pos("bank"), pos("file"))
     add("brief", cmd_brief, pos("bank"))
     add("recall", cmd_recall, pos("bank"), opt("--query"), opt("--about"), opt("--entity"),
-        opt("--type"), opt("--since"), opt("--limit", type=int, default=10))
+        opt("--type"), opt("--since"), opt("--limit", type=int, default=10),
+        opt("--compact", action="store_true", help="one line per record instead of JSON"))
     add("gaps", cmd_gaps, pos("bank"))
     add("pages", cmd_pages, pos("bank"))
     add("demo-brief", cmd_demo_brief, pos("bank"), pos("plan"))

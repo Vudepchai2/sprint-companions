@@ -136,3 +136,77 @@ def test_long_observation_keeps_its_evidence_and_reading_label(tmp_path):
     run(store, [{"type": "observation", "about": "telling", "statement": "word " * 60}], COMPANION)
     line = [x for x in brief(open_bank(directory)[1], "Ana").splitlines() if x.startswith("- [o1]")][0]
     assert len(line) <= 120 and line.endswith("… (0 evidence) (companion's reading)")
+
+
+# Every first reply checks whether the companion has met the sprinter, and /demo-brief reads every
+# moment and claim. Both must fit well inside what one Bash output holds (about 30,000 characters).
+
+def test_brief_lists_the_companions_who_have_met_the_sprinter(tmp_path):
+    directory = create_bank(tmp_path, "Ana")
+    store = open_bank(directory)[0]
+    out = brief(open_bank(directory)[1], "Ana")
+    assert out.rstrip().endswith("## Met\n- none")
+    run(store, [{"type": "moment", "title": "A", "what_happened": "w"}], {**SAID, "by": "ks"})
+    run(store, [{"type": "moment", "title": "B", "what_happened": "w"}], {**SAID, "by": "notes"})
+    run(store, [{"type": "moment", "title": "C", "what_happened": "w"}], {**SAID, "by": "tt"})
+    run(store, [{"op": "retract", "id": "m3", "reason": "wrong"}], {**SAID, "by": "ks"})
+    out = brief(open_bank(directory)[1], "Ana")
+    assert "## Met\n- tt, ks\n" in out  # in TT, KS, MM, MR order; quiet notes aren't a companion; retracted still met
+
+
+def test_recall_compact_is_one_line_per_record(fixture):
+    from companions.memory.recall import compact
+    lines = compact(fixture, recall(fixture, limit=500), total=len(recall(fixture, limit=500))).splitlines()
+    assert len(lines) == len(recall(fixture, limit=500))
+    m1 = next(line for line in lines if line.startswith("[m1] "))
+    assert m1 == "[m1] moment · told · 2025-05 · Pilot launch · said"
+    c1 = next(line for line in lines if line.startswith("[c1] "))
+    assert c1 == '[c1] claim · conflicted · about m1 · leads=100 · 100 leads · "100" · said'
+
+
+def _big_bank(tmp_path, n=50):
+    directory = create_bank(tmp_path, "Ana")
+    store = open_bank(directory)[0]
+    for i in range(n):
+        src = {"kind": "build", "ref": f"sessions/s{i}", "at": f"2026-11-{1 + i % 28:02d}T10:00:00Z",
+               "by": "notes", "project": "clinic-app"}
+        run(store, [
+            {"type": "moment", "title": f"Clinic {i} signed after the second demo call",
+             "date": f"2026-11-{1 + i % 28:02d}",
+             "what_happened": "The owner tried the booking sync on a Friday, saw the no-shows drop and signed "
+                              "the same afternoon, after asking whether it works with their old calendar.",
+             "quotes": [f"clinic {i} signed today, they want the sync with their booking system",
+                        "the owner said no-shows are the thing that keeps her up at night"]},
+            {"type": "claim", "about": f"m{i + 1}", "key": "price", "value": 200 + i, "unit": "EUR/month",
+             "statement": f"Clinic {i} pays {200 + i} euros a month", "quote": f"€{200 + i}/month, signed today"},
+        ], src)
+    return directory
+
+
+def test_recall_compact_stays_small_for_a_full_sprint_bank(tmp_path):
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+    directory = _big_bank(tmp_path)  # 100 records, two quotes on each moment
+    env = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1])}
+    sizes = {}
+    for args in (["--compact", "--limit", "500"], ["--limit", "500"]):
+        r = subprocess.run([sys.executable, "-m", "companions", "memory", "recall", str(directory), *args],
+                           capture_output=True, text=True, encoding="utf-8", env=env)
+        assert r.returncode == 0, r.stderr
+        sizes[args[0]] = len(r.stdout)
+    assert sizes["--compact"] < 20_000, sizes  # well under the ~30,000-character Bash output cap
+    assert sizes["--limit"] > 30_000, sizes  # the JSON shape alone would overflow it
+    r = subprocess.run([sys.executable, "-m", "companions", "memory", "recall", str(directory), "--compact",
+                        "--type", "moment", "--limit", "500"], capture_output=True, text=True, encoding="utf-8", env=env)
+    lines = r.stdout.splitlines()
+    assert len(lines) == 50 and all(line.startswith("[m") for line in lines)
+    assert '"the owner said no-shows are the thing that keeps her up at night"' in lines[0]
+
+
+def test_recall_compact_says_when_the_limit_cut_it(tmp_path):
+    from companions.memory.recall import compact
+    b = open_bank(_big_bank(tmp_path, n=5))[1]
+    out = compact(b, recall(b, limit=3), total=len(recall(b, limit=500)))
+    assert out.splitlines()[-1] == "(3 of 10 shown; raise --limit to see the rest)"

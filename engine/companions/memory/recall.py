@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .bank import Bank
-from .schema import normalise_name
+from .schema import BY, normalise_name
 
 GAP_ORDER = ("open_conflict", "imported_only", "no_change", "no_meaning",
              "no_scene", "thin_observation", "unused_moment")
@@ -145,7 +145,57 @@ def brief(bank: Bank, name: str) -> str:
     counts = {g: sum(1 for x in gap_list if x["gap"] == g) for g in GAP_ORDER}
     shown = [f"- {g}: {n}" for g, n in counts.items() if n]
     lines += shown or ["- none"]
+    lines += ["", "## Met", "- " + (", ".join(met(bank)) or "none")]
     return "\n".join(lines) + "\n"
+
+
+def met(bank: Bank) -> list[str]:
+    """The companions who have met the sprinter: any record, retracted or not, with a source `by` them."""
+    seen = {s.get("by") for r in bank.records.values() for s in r["sources"]}
+    return [code for code in BY if code != "notes" and code in seen]
+
+
+def _quoted(v) -> str:
+    return '"' + " ".join(str(v).split()) + '"'
+
+
+def compact_line(r: dict) -> str:
+    """One record from recall() on one line, each field once: id, type, status, then what it says.
+
+    Quotes are given whole, in quote marks, so they can be quoted word for word; other text is capped.
+    """
+    d, t = r["data"], r["type"]
+    parts = [f"[{r['id']}] {t}", r["status"]]
+    if t == "moment":
+        parts += [d["date"]] if d.get("date") else []
+        parts += [_cap(str(d.get("title", "")))]
+        parts += [" / ".join(_quoted(q) for q in d.get("quotes") or [])]
+    elif t == "claim":
+        parts += [f"about {d.get('about', '')}"]
+        if d.get("value") not in (None, ""):
+            unit = f" {d['unit']}" if d.get("unit") else ""
+            parts += [f"{d.get('key', '')}={d['value']}{unit}"]
+        parts += [_cap(str(d.get("statement", "")))]
+        parts += [_quoted(d["quote"])] if d.get("quote") else []
+    elif t == "entity":
+        rel = f" — {d['relation']}" if d.get("relation") else ""
+        parts += [_cap(f"{d.get('name', '')} ({d.get('kind', '')}){rel}")]
+    elif t == "observation":
+        parts += [f"about {d.get('about', '')}", _cap(str(d.get("statement", "")))]
+    else:
+        parts += [d["date"]] if d.get("date") else []
+        parts += [_cap(str(d.get("name") or d.get("title") or d.get("filename") or ""))]
+    labels = dict.fromkeys(str(s.get("by") or s.get("kind") or "") for s in r["sources"])
+    parts += [", ".join(x for x in labels if x)]
+    return " · ".join(x for x in parts if x)
+
+
+def compact(bank: Bank, results: list[dict], total: int) -> str:
+    """recall() results one line each, and a last line saying so when a limit cut the list."""
+    lines = [compact_line(r) for r in results]
+    if total > len(results):
+        lines.append(f"({len(results)} of {total} shown; raise --limit to see the rest)")
+    return "\n".join(lines)
 
 
 def recall(bank: Bank, query: str | None = None, about: str | None = None,
