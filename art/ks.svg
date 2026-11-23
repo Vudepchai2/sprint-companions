@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="KS placeholder">
+  <circle cx="60" cy="60" r="58" fill="#2E8A74"/>
+  <g fill="#CFF0E6">
+    <rect x="36" y="24" width="10" height="16" rx="2"/>
+    <rect x="52" y="18" width="10" height="22" rx="2"/>
+    <rect x="68" y="28" width="10" height="12" rx="2"/>
+  </g>
+  <text x="60" y="84" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" font-weight="700" fill="#FFFFFF">KS</text>
+</svg>
