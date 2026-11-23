@@ -166,3 +166,14 @@ def test_notes_project_no_marks_folder_false(home):
 def test_notes_read_rejects_bad_limit(home):
     r = run_cli("notes", "read", "--limit", "0")
     assert r.returncode != 0 and "Traceback" not in r.stderr
+
+
+@pytest.mark.parametrize("bad", ["null", "latest", "<through>", "", "2026-11-23", "2026-11-23T09:00:00+00:00",
+                                 "2026-11-23T09:00:00.123456+00:00-zzzzzz"])
+def test_notes_done_rejects_a_through_that_is_not_an_id(home, bad):
+    run_cli("notes", "on"); run_cli("notes", "project", "/w/clinic-app", "--startup", "yes")
+    run_cli("hook", "prompt", input=json.dumps(PAYLOAD))
+    r = run_cli("notes", "done", "--through", bad)
+    assert r.returncode == 1 and "Traceback" not in r.stderr and "through" in r.stderr
+    assert not (home / "notes" / "state.json").exists()
+    assert len(json.loads(run_cli("notes", "read").stdout)["entries"]) == 1  # nothing was marked digested

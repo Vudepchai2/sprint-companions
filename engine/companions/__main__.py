@@ -59,7 +59,7 @@ def cmd_notes(a):
         elif a.action == "project":
             set_project(a.cwd, a.startup == "yes")
             print(f"{a.cwd}: {'startup' if a.startup == 'yes' else 'not the startup'}")
-    except OSError as e:
+    except (OSError, ValueError) as e:
         print(f"quiet notes: {e}", file=sys.stderr)
         sys.exit(1)
 

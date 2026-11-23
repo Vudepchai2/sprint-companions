@@ -15,6 +15,8 @@ MAX_TEXT = 4000
 KEEP_DAYS = 30
 _DAY_FILE = re.compile(r"(\d{4}-\d{2}-\d{2})\.jsonl")
 _FIELDS = ("id", "at", "session", "cwd", "text")
+# An id as append writes it: the UTC time to the microsecond, then 6 random hex digits.
+ID = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+00:00-[0-9a-f]{6}")
 
 
 def _inbox() -> Path:
@@ -138,7 +140,13 @@ def read(limit: int = 150) -> dict:
 
 
 def done(through: str) -> None:
-    """Mark every note up to and including `through` as digested. Never moves backwards."""
+    """Mark every note up to and including `through` as digested. Never moves backwards.
+
+    `through` must be an id as `read` gives it. Anything else (a placeholder, "null") would sort after
+    every future id and silently mark every later note digested, so it raises ValueError instead.
+    """
+    if not isinstance(through, str) or not ID.fullmatch(through):
+        raise ValueError(f"--through must be the `through` id that `notes read` printed, not {through!r}")
     current = _digested_through()
     if current is not None and through <= current:
         return
