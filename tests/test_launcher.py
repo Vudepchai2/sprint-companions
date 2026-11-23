@@ -255,9 +255,11 @@ def test_shim_reinstalls_on_version_mismatch(rig):
 
 def test_shim_engine_url_override(rig):
     rig.install_engine("0.0.9")
-    code, _, err = rig.run("status", env=rig.env(COMPANIONS_ENGINE_URL="file:///somewhere/engine"))
+    code, _, err = rig.run("status", env=rig.env(COMPANIONS_ENGINE_URL="file:///somewhere/repo"))
     assert code == 0, err
-    assert f"tool install --force --python 3.12 git+file:///somewhere/engine@v{PIN}" in rig.calls()
+    # The override names a repo, like the default URL, so the engine's subfolder is added too:
+    # the repo root has no pyproject.toml, and uv refuses it.
+    assert f"tool install --force --python 3.12 git+file:///somewhere/repo@v{PIN}#subdirectory=engine" in rig.calls()
 
 
 def test_shim_prefers_the_exe(rig):

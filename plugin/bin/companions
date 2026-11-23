@@ -20,8 +20,9 @@
 # Exit codes (other commands): 3 uv missing, 4 engine install failed, 5 launcher re-entered,
 # 6 `uv tool dir` failed, 7 the engine folder holds this launcher.
 #
-# COMPANIONS_ENGINE_URL overrides where the engine comes from (for tests and local dry runs),
-# for example file:///path/to/engine. The pin is appended as @v<pin>.
+# COMPANIONS_ENGINE_URL overrides which repo the engine comes from (for tests and local dry runs),
+# for example file:///C%3A/path/to/repo (uv wants the drive colon percent-encoded). The pin is
+# appended as @v<pin>, then #subdirectory=engine, as for the default URL.
 # COMPANIONS_ENGINE_BIN overrides the private engine folder (default ~/.sprint-companions/engine-bin).
 set -euo pipefail
 
@@ -155,7 +156,7 @@ if [ "$installed" != "companions $PIN" ]; then
     exit 0 # never install on the prompt path
   fi
   if [ -n "${COMPANIONS_ENGINE_URL:-}" ]; then
-    SPEC="git+${COMPANIONS_ENGINE_URL}@v${PIN}"
+    SPEC="git+${COMPANIONS_ENGINE_URL}@v${PIN}#subdirectory=engine"
   else
     SPEC="git+https://github.com/Vudepchai2/sprint-companions@v${PIN}#subdirectory=engine"
   fi
